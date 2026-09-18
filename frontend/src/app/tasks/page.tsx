@@ -1,15 +1,7 @@
 "use client";
 
+import { Task } from "@/features/tasks/types/task";
 import { useState, useEffect } from "react";
-
-type Task = {
-  id: number;
-  title: string;
-  description: string | null;
-  completed: boolean;
-  createdAt: string;
-  updatedAt: string;
-};
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -57,7 +49,7 @@ export default function TasksPage() {
     });
 
     if (!response.ok) {
-        throw new Error("Failed to create task");
+      throw new Error("Failed to create task");
     }
 
     const newTask = await response.json();
@@ -65,6 +57,42 @@ export default function TasksPage() {
 
     setTitle("");
     setDescription("");
+  }
+
+  async function handleToggle(task: Task) {
+    const response = await fetch(`http://localhost:3001/tasks/${task.id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        completed: !task.completed,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update task");
+    }
+
+    const updatedTask = await response.json();
+    setTasks((currentTasks) =>
+      currentTasks.map((currentTask) =>
+        currentTask.id === updatedTask.id ? updatedTask : currentTask,
+      ),
+    );
+  }
+
+  async function handleDelete(id: number, title: string) {
+    if (!confirm(`Are you sure you want to delete ${title}?`)) return;
+    const response = await fetch(`http://localhost:3001/tasks/${id}`, {
+      method: "DELETE",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to delete task");
+    }
+
+    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== id));
   }
 
   if (loading) {
@@ -113,7 +141,8 @@ export default function TasksPage() {
         {tasks.map((task) => (
           <li
             key={task.id}
-            className="rounded-lg border border-gray-200 bg-white p-4"
+            className="rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:bg-gray-50"
+            onClick={() => handleToggle(task)}
           >
             <div className="flex flex-wrap items-start justify-between gap-2">
               <h2 className="text-lg font-semibold text-gray-900">
@@ -132,6 +161,18 @@ export default function TasksPage() {
             <p className="mt-2 text-sm leading-6 text-gray-600">
               {task.description}
             </p>
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                className="text-sm text-red-600 cursor-pointer px-3 py-1 hover:bg-red-50"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  handleDelete(task.id, task.title);
+                }}
+              >
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
