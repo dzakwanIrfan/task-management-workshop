@@ -9,7 +9,7 @@ export async function getTasks(): Promise<Task[]> {
     throw new Error("Failed to fetch tasks");
   }
 
-  return await response.json();
+  return response.json();
 }
 
 export async function createTask(input: CreateTaskInput): Promise<Task> {
@@ -25,7 +25,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
     throw new Error("Failed to create task");
   }
 
-  return await response.json();
+  return response.json();
 }
 
 export async function updateTask(
@@ -44,7 +44,7 @@ export async function updateTask(
     throw new Error("Failed to update task");
   }
 
-  return await response.json();
+  return response.json();
 }
 
 export async function deleteTask(id: number): Promise<void> {

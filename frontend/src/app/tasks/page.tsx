@@ -1,5 +1,11 @@
 "use client";
 
+import {
+  createTask,
+  deleteTask,
+  getTasks,
+  updateTask,
+} from "@/features/tasks/api/tasks.api";
 import { Task } from "@/features/tasks/types/task";
 import { useState, useEffect } from "react";
 
@@ -15,14 +21,8 @@ export default function TasksPage() {
     async function loadTasks() {
       try {
         await new Promise((resolve) => setTimeout(resolve, 2000));
-        const response = await fetch("http://localhost:3001/tasks");
 
-        if (!response.ok) {
-          throw new Error("Failed to fetch tasks");
-        }
-
-        const data = await response.json();
-
+        const data = await getTasks();
         setTasks(data);
       } catch {
         setError(new Error("Failed to fetch tasks."));
@@ -37,22 +37,7 @@ export default function TasksPage() {
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const response = await fetch("http://localhost:3001/tasks", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        title,
-        description,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to create task");
-    }
-
-    const newTask = await response.json();
+    const newTask = await createTask({ title, description });
     setTasks((currentTasks) => [...currentTasks, newTask]);
 
     setTitle("");
@@ -74,7 +59,9 @@ export default function TasksPage() {
       throw new Error("Failed to update task");
     }
 
-    const updatedTask = await response.json();
+    const updatedTask = await updateTask(task.id, {
+      completed: !task.completed,
+    });
     setTasks((currentTasks) =>
       currentTasks.map((currentTask) =>
         currentTask.id === updatedTask.id ? updatedTask : currentTask,
@@ -84,13 +71,7 @@ export default function TasksPage() {
 
   async function handleDelete(id: number, title: string) {
     if (!confirm(`Are you sure you want to delete ${title}?`)) return;
-    const response = await fetch(`http://localhost:3001/tasks/${id}`, {
-      method: "DELETE",
-    });
-
-    if (!response.ok) {
-      throw new Error("Failed to delete task");
-    }
+    await deleteTask(id);
 
     setTasks((currentTasks) => currentTasks.filter((task) => task.id !== id));
   }
