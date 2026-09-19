@@ -6,16 +6,14 @@ import {
   getTasks,
   updateTask,
 } from "@/features/tasks/api/tasks.api";
-import { Task } from "@/features/tasks/types/task";
+import { TaskForm } from "@/features/tasks/components/task-form";
+import { CreateTaskInput, Task } from "@/features/tasks/types/task";
 import { useState, useEffect } from "react";
 
 export default function TasksPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
-
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
 
   useEffect(() => {
     async function loadTasks() {
@@ -34,14 +32,8 @@ export default function TasksPage() {
     loadTasks();
   }, []);
 
-  async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const newTask = await createTask({ title, description });
+  async function handleCreateTask(newTask: Task) {
     setTasks((currentTasks) => [...currentTasks, newTask]);
-
-    setTitle("");
-    setDescription("");
   }
 
   async function handleToggle(task: Task) {
@@ -95,28 +87,7 @@ export default function TasksPage() {
       <h1 className="text-3xl font-bold">Tasks</h1>
       <p className="text-gray-600 mb-6">Manage your tasks here.</p>
 
-      <form className="flex flex-col gap-2 w-full" onSubmit={handleSubmit}>
-        <input
-          value={title}
-          placeholder="Task title"
-          onChange={(e) => setTitle(e.target.value)}
-          className="w-full rounded border p-2"
-        />
-
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Task description"
-          className="w-full rounded border p-2"
-        ></textarea>
-
-        <button
-          type="submit"
-          className="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600"
-        >
-          Add Task
-        </button>
-      </form>
+      <TaskForm onCreated={handleCreateTask} />
 
       <ul className="mt-6 space-y-3">
         {tasks.map((task) => (
