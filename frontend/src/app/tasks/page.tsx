@@ -7,6 +7,7 @@ import {
   updateTask,
 } from "@/features/tasks/api/tasks.api";
 import { TaskForm } from "@/features/tasks/components/task-form";
+import { TaskItem } from "@/features/tasks/components/task-item";
 import { CreateTaskInput, Task } from "@/features/tasks/types/task";
 import { useState, useEffect } from "react";
 
@@ -61,11 +62,11 @@ export default function TasksPage() {
     );
   }
 
-  async function handleDelete(id: number, title: string) {
-    if (!confirm(`Are you sure you want to delete ${title}?`)) return;
-    await deleteTask(id);
+  async function handleDelete(task: Task) {
+    if (!confirm(`Are you sure you want to delete ${task.title}?`)) return;
+    await deleteTask(task.id);
 
-    setTasks((currentTasks) => currentTasks.filter((task) => task.id !== id));
+    setTasks((currentTasks) => currentTasks.filter((t) => t.id !== task.id));
   }
 
   if (loading) {
@@ -91,41 +92,12 @@ export default function TasksPage() {
 
       <ul className="mt-6 space-y-3">
         {tasks.map((task) => (
-          <li
+          <TaskItem
             key={task.id}
-            className="rounded-lg border border-gray-200 bg-white p-4 cursor-pointer hover:bg-gray-50"
-            onClick={() => handleToggle(task)}
-          >
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <h2 className="text-lg font-semibold text-gray-900">
-                {task.title}
-              </h2>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-medium ${
-                  task.completed
-                    ? "bg-green-100 text-green-800"
-                    : "bg-gray-100 text-gray-700"
-                }`}
-              >
-                {task.completed ? "Completed" : "Incomplete"}
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-6 text-gray-600">
-              {task.description}
-            </p>
-            <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                className="text-sm text-red-600 cursor-pointer px-3 py-1 hover:bg-red-50"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  handleDelete(task.id, task.title);
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          </li>
+            task={task}
+            handleToggle={handleToggle}
+            handleDelete={handleDelete}
+          />
         ))}
       </ul>
     </main>
