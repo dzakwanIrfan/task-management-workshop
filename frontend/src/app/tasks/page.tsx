@@ -1,14 +1,12 @@
 "use client";
 
 import {
-  createTask,
   deleteTask,
   getTasks,
   updateTask,
 } from "@/features/tasks/api/tasks.api";
-import { TaskForm } from "@/features/tasks/components/task-form";
-import { TaskItem } from "@/features/tasks/components/task-item";
-import { CreateTaskInput, Task } from "@/features/tasks/types/task";
+import { TaskView } from "@/features/tasks/components/task-view";
+import { Task } from "@/features/tasks/types/task";
 import { useState, useEffect } from "react";
 
 export default function TasksPage() {
@@ -69,37 +67,14 @@ export default function TasksPage() {
     setTasks((currentTasks) => currentTasks.filter((t) => t.id !== task.id));
   }
 
-  if (loading) {
-    return (
-      <main className="mx-auto max-w-3xl p-6">
-        <h1 className="text-3xl font-bold">Tasks</h1>
-        <p className="text-gray-600">Manage your tasks here.</p>
-        <span className="mx-auto mt-4 block h-4 w-4 animate-spin rounded-full border-4 border-blue-500 border-t-transparent" />
-      </main>
-    );
-  }
-
-  if (error) {
-    return <p>Error: {error.message}</p>;
-  }
-
   return (
-    <main className="mx-auto max-w-3xl p-6">
-      <h1 className="text-3xl font-bold">Tasks</h1>
-      <p className="text-gray-600 mb-6">Manage your tasks here.</p>
-
-      <TaskForm onCreated={handleCreateTask} />
-
-      <ul className="mt-6 space-y-3">
-        {tasks.map((task) => (
-          <TaskItem
-            key={task.id}
-            task={task}
-            handleToggle={handleToggle}
-            handleDelete={handleDelete}
-          />
-        ))}
-      </ul>
-    </main>
+    <TaskView
+      tasks={tasks}
+      loading={loading}
+      error={error}
+      handleCreateTask={handleCreateTask}
+      handleToggle={handleToggle}
+      handleDelete={handleDelete}
+    />
   );
 }
