@@ -1,79 +1,82 @@
-# Day 3 Workshop — Auth Next.js + NestJS dan Task Milik Pengguna
+# Day 3 Workshop — Authentication, JWT Guard, dan User-Owned Tasks
 
-> **Cara memakai materi ini:** kerjakan satu tahap, jalankan, lihat hasilnya, baru lanjut. Potongan kode di bawah adalah **perubahan yang akan dibuat peserta**, bukan gambaran bahwa repository sudah memiliki auth. Semua perintah dijalankan dari direktori yang tertulis di setiap tahap.
+> Dokumen ini adalah acuan mengajar berdasarkan codebase saat ini. Backend Day 1 sudah menyediakan CRUD Task; frontend Day 2 sudah memanggil API tersebut. Authentication dan relasi pemilik task **belum diimplementasikan** di repository. Potongan kode di bawah ditambahkan bertahap. Jika sebuah langkah meminta mengganti isi file, versi sebelumnya diganti, bukan digabung dengan versi baru.
 
-## Hasil akhir yang ingin dicapai
+## Target implementasi
 
-Peserta dapat menjelaskan dan mendemokan alur berikut:
+Saat ini `GET /tasks` memanggil `findMany()` tanpa filter. API mengembalikan task yang sama kepada setiap pemanggil. Day 3 menambahkan model `User`, register dan login, verifikasi JWT melalui `JwtAuthGuard`, serta filter `userId` pada semua operasi Task.
 
-```text
-Register -> password di-hash -> User tersimpan
-Login -> password dibandingkan -> server menerbitkan JWT
-Browser -> Authorization: Bearer <JWT> -> JwtAuthGuard -> identitas user
-Identitas user -> query Prisma dibatasi userId -> hanya task sendiri
-```
+| Proses | Endpoint | Hasil akhir |
+| --- | --- | --- |
+| Register | `POST /auth/register` | User baru; respons hanya `id` dan `email`. |
+| Login | `POST /auth/login` | `accessToken` dan data user publik. |
+| Profil | `GET /auth/me` | `401` tanpa JWT valid; `200` dengan JWT valid. |
+| CRUD Task | `/tasks` dan `/tasks/:id` | JWT wajib; query dibatasi oleh `userId` dari token yang diverifikasi. |
 
-| Aksi | Endpoint | Perlu token? | Hasil penting |
-| --- | --- | --- | --- |
-| Register | `POST /auth/register` | Tidak | `201`, user tanpa hash password |
-| Login | `POST /auth/login` | Tidak | `200`, `accessToken` dan user |
-| Siapa saya? | `GET /auth/me` | Ya | `200` jika token valid; `401` jika tidak |
-| CRUD task | `POST/GET/PATCH/DELETE /tasks...` | Ya | Selalu dibatasi ke user dari token |
+Urutan implementasinya: **model User → register dan hash password → login dan JWT → guard → relasi Task–User → filter query Task → integrasi Next.js → uji dua akun**. Selesaikan dan uji kontrak backend sebelum mengubah request frontend. Dengan begitu, kegagalan `401` atau `404` dapat ditelusuri ke lapisan yang tepat.
 
-**Kalimat pembuka untuk peserta:** “Kemarin semua orang melihat daftar task yang sama. Hari ini kita membuat identitas pengguna, membuktikan identitas itu saat login, lalu meminta database mengambil task berdasarkan identitas yang sudah diverifikasi server.”
+Istilah yang dipakai sepanjang materi:
 
-## 0. Kenali titik awal proyek dan istilahnya
+- **Authentication** memverifikasi kredensial saat login dan JWT pada request berikutnya.
+- **Authorization** menentukan apakah user terautentikasi boleh mengakses sebuah Task. Dalam implementasi ini, `TasksService` selalu memakai `userId` dari `request.user` pada query Prisma.
+- **Password hash** adalah nilai yang dihasilkan `bcrypt.hash(password)` dan disimpan sebagai `passwordHash`. Login memakai `bcrypt.compare(password, passwordHash)`.
+- **JWT** berisi klaim `sub` (ID user) dan signature. `JwtAuthGuard` memverifikasi signature serta masa berlaku token sebelum mengisi `request.user`.
+- **`sessionStorage`** dipakai frontend latihan untuk menyimpan access token pada tab browser. Ini bukan server-side session.
 
-Proyek ini sudah memakai **NestJS 11, Prisma 7 + PostgreSQL, Next.js 16 App Router, dan pnpm**. Backend berjalan pada port `3001`, frontend pada port `3000`. Di backend, `Task` sekarang belum memiliki pemilik; `TasksController` dan `TasksService` sudah melayani CRUD. `main.ts` sudah mengaktifkan `ValidationPipe` global dan CORS untuk alamat frontend. Di frontend, `/tasks` adalah Client Component yang menyimpan state daftar task, sementara `tasks.api.ts` mengirim `fetch` langsung ke NestJS.
+Contoh data yang digunakan pada pengujian: satu akun dengan `userId = 1`, satu akun lain dengan `userId = 2`, dan sebuah Task dengan `id = 12` serta `userId = 1`. Untuk akun kedua, filter `{ id: 12, userId: 2 }` tidak menemukan Task. Angka ini hanya contoh untuk membaca query; ID nyata tetap mengikuti respons database.
 
-Lihat dahulu file berikut bersama peserta:
+## 0. Kondisi awal dan persiapan
 
-- `backend/prisma/schema.prisma` — bentuk tabel saat ini.
-- `backend/src/tasks/tasks.controller.ts` — pintu HTTP.
-- `backend/src/tasks/tasks.service.ts` — query database.
-- `backend/src/tasks/dto/` — aturan validasi request yang sudah dipakai proyek.
-- `frontend/src/app/tasks/page.tsx` — state dan alur UI.
-- `frontend/src/features/tasks/api/tasks.api.ts` — semua request task dari browser.
+Proyek memakai NestJS 11, Prisma 7 + PostgreSQL, Next.js 16 App Router, dan pnpm. Backend lokal memakai port `3001`; frontend memakai port `3000`. Di backend, `main.ts` sudah mengaktifkan `ValidationPipe` global dan CORS. Di frontend, `/tasks` adalah Client Component dan fungsi `fetch` Task berada di `tasks.api.ts`.
 
-**Tiga istilah yang perlu dibedakan:**
+| File yang sudah ada | Peran |
+| --- | --- |
+| `backend/prisma/schema.prisma` | Model Task dan konfigurasi Prisma Client. |
+| `backend/src/tasks/tasks.controller.ts` | Route HTTP Task. |
+| `backend/src/tasks/tasks.service.ts` | Query Task melalui Prisma. |
+| `backend/src/tasks/dto/` | Validasi body POST/PATCH. |
+| `frontend/src/app/tasks/page.tsx` | State dan handler halaman Task. |
+| `frontend/src/features/tasks/api/tasks.api.ts` | GET/POST/PATCH/DELETE dari browser. |
 
-1. **Authentication:** apakah pemanggil benar-benar pengguna yang mengaku login? Password dan JWT menjawabnya.
-2. **Authorization:** setelah identitas diketahui, bolehkah pengguna menyentuh data tertentu? Filter `userId` menjawabnya.
-3. **Session di browser:** bagaimana browser menyimpan bukti login untuk request berikutnya? Pada latihan ini kita memakai bearer token di `sessionStorage` supaya alur HTTP terlihat jelas.
-
-**Pertanyaan pemantik:** “Jika endpoint `GET /tasks` masih memakai `findMany()` tanpa filter, apa yang dilihat Bob setelah Alice membuat task?” Jawabannya: task Alice juga. Menyembunyikan kartu di UI tidak mengubah respons API.
-
-### Persiapan lingkungan
-
-Jalankan backend dan frontend pada terminal berbeda. File `backend/.env` sudah dipakai oleh koneksi database; `frontend/.env` sudah berisi `NEXT_PUBLIC_API_URL=http://localhost:3001`. Jangan menampilkan isi `backend/.env` di layar workshop karena berisi kredensial.
+Jalankan backend dan frontend pada terminal terpisah. Gunakan database latihan yang boleh diubah. `backend/.env` memuat konfigurasi database; jangan tampilkan kredensialnya saat workshop. Jika `frontend/.env` belum ada di salinan kerja peserta, buat dengan `NEXT_PUBLIC_API_URL=http://localhost:3001` lalu restart Next.js.
 
 ```bash
-# Terminal 1
+# Terminal backend, dari root repository
 cd backend
 pnpm install
 pnpm start:dev
 
-# Terminal 2, dari root proyek
+# Terminal frontend, dari root repository
 cd frontend
 pnpm install
 pnpm dev
 ```
 
-> **Perhatian data Day 2:** kolom `Task.userId` di langkah 6 nanti wajib diisi. Jika database masih berisi task lama tanpa pemilik, migrasi itu akan gagal. Untuk workshop, gunakan database PostgreSQL **khusus latihan yang kosong**, atau reset database lokal **hanya setelah data yang perlu disimpan dicadangkan**. Jangan menjalankan reset pada database bersama/produksi. Alternatif untuk data yang perlu dipertahankan: migrasikan `userId` sebagai nullable, buat atau tentukan pemilik untuk setiap task lama, isi semua `userId`, lalu buat migrasi kedua yang mengubahnya menjadi wajib. Pada panduan utama di bawah, anggap database latihan kosong setelah migrasi Day 2 diterapkan.
+Sebelum mengubah kode, panggil `GET /tasks` dan baca implementasi `TasksService.findAll()`:
 
-Jika Anda **sengaja memilih menghapus seluruh data database lokal latihan**, jalankan perintah ini dari `backend/` sebelum `migrate dev` pada langkah 1:
+```bash
+curl -i http://localhost:3001/tasks
+```
+
+Respons `200` berasal dari `findMany()` tanpa `where`. Ini baseline yang akan berubah setelah guard dan filter ownership dipasang.
+
+**Data migrasi:** pada langkah 6, kolom `Task.userId` dibuat wajib. Baris Task lama belum punya `userId`, sehingga migrasi tidak dapat langsung diterapkan pada tabel yang berisi data. Jalur utama materi memakai **database lokal latihan dengan tabel Task kosong**. Jika data lama perlu dipertahankan, migrasikan `userId` sebagai nullable, lakukan backfill berdasarkan pemilik yang ditetapkan, lalu ubah menjadi wajib. Jangan jalankan reset pada database bersama atau data yang masih diperlukan.
+
+Jika database latihan memang boleh dihapus seluruhnya, jalankan dari `backend/` **sebelum** membuat akun pada langkah 3:
 
 ```bash
 pnpm exec prisma migrate reset --force
 ```
 
-Perintah itu menerapkan ulang migrasi yang sudah ada dan **menghapus semua data**, bukan hanya task. Prisma 7 tidak otomatis menjalankan seed pada reset. Seed Day 2 yang belum punya `userId` jangan dijalankan setelah langkah 6. Bila data Day 2 perlu dipertahankan, gunakan jalur migrasi dua tahap di atas.
+Perintah ini menghapus seluruh data dan menerapkan ulang migrasi yang sudah ada. Pada Prisma 7 dalam proyek ini, seed tidak otomatis dijalankan oleh reset. Seed lama juga belum mengisi `userId`; langkah 6 menjelaskan penggantinya.
 
-**Checkpoint 0:** sebelum mengubah kode, minta peserta menyebutkan mengapa `GET /tasks` saat ini tidak tahu siapa pemanggilnya.
+**Verifikasi awal:** `GET /tasks` dapat diakses tanpa token dan hasilnya belum dibatasi per user. Setelah langkah 6, request yang sama tanpa token harus mendapat `401`.
 
 ## 1. Tambahkan model User dulu
 
-**Tujuan kecil:** database dapat menyimpan akun, sementara CRUD Task Day 2 tetap berjalan selama register/login dipelajari. Edit `backend/prisma/schema.prisma`. Pertahankan blok `generator`, `datasource`, dan model `Task` yang sudah ada; **tambahkan hanya model baru** berikut:
+**Tujuan langkah ini:** membuat model `User` sebagai dasar untuk register dan relasi pemilik Task. Pada tahap ini, model `Task` dan CRUD yang sudah ada belum berubah. Tunjukkan perubahan schema terlebih dahulu, lalu jalankan migrasi supaya peserta dapat membedakan definisi model di Prisma dari tabel yang benar-benar dibuat di PostgreSQL.
+
+Edit `backend/prisma/schema.prisma`. Pertahankan blok `generator`, `datasource`, dan model `Task` yang sudah ada; **tambahkan hanya model baru** berikut:
 
 ```prisma
 model User {
@@ -84,14 +87,17 @@ model User {
 }
 ```
 
-**Bedah baris penting:**
+**Penjelasan per baris:**
 
-- `email String @unique`: database menolak dua akun dengan email sama. Validasi di kode saja belum cukup ketika dua request datang hampir bersamaan.
-- `passwordHash String`: kolom ini menyimpan hasil hash, **bukan password asli**. Namanya sengaja jelas agar tidak tertukar.
-- `id`: nomor user yang nanti dimasukkan ke klaim `sub` JWT.
-- `createdAt`: waktu akun dibuat; Prisma mengisinya otomatis.
+| Baris | Penjelasan |
+| --- | --- |
+| `model User { ... }` | Mendefinisikan model User di Prisma. Tabel PostgreSQL baru dibuat ketika migrasi dijalankan. |
+| `id Int @id @default(autoincrement())` | `id` adalah primary key bertipe integer; database memberi nilai secara otomatis saat User dibuat. |
+| `email String @unique` | Email harus unik. Constraint database tetap menolak duplikat jika dua request register datang hampir bersamaan. |
+| `passwordHash String` | Menyimpan hasil `bcrypt.hash()`, bukan password dari request. Login nanti membandingkan password input dengan hash ini. |
+| `createdAt DateTime @default(now())` | Database mengisi waktu pembuatan ketika record ditambahkan. Field ini tidak perlu dikirim saat register. |
 
-**Analogi:** sebelum kartu task bisa diberi nomor pemilik, kita perlu membuat daftar pemiliknya dahulu. Pada langkah 6, barulah model Task dihubungkan ke User.
+Relasi ke `Task` ditambahkan pada langkah 6. Dengan urutan ini, peserta bisa memeriksa proses register lebih dulu sebelum semua query Task berubah.
 
 Dari `backend/` jalankan:
 
@@ -101,15 +107,23 @@ pnpm exec prisma migrate dev --name add_users
 pnpm exec prisma generate
 ```
 
-`migrate dev` membuat dan menerapkan migrasi. `generate` membangun ulang Prisma Client di lokasi khusus proyek ini, yaitu `backend/generate/prisma`; karena itu import di backend tetap `generate/prisma/client`, bukan menggantinya dengan `@prisma/client`. Pada Prisma 7 proyek ini, jalankan `generate` secara eksplisit setelah perubahan schema.
+Jalankan perintah secara berurutan. `prisma validate` memeriksa validitas schema; `prisma migrate dev` membuat dan menerapkan SQL migrasi di PostgreSQL; `prisma generate` memperbarui Prisma Client sehingga TypeScript mengenal `prisma.user`. Output Prisma Client proyek ini berada di `backend/generate/prisma`, sehingga kode berikutnya mengimpor dari `generate/prisma/client`. Pada Prisma 7 di proyek ini, jalankan `generate` secara eksplisit setelah schema berubah.
 
-**Checkpoint 1:** buka migrasi baru dan tunjuk keunikan `User.email`. `Task` tetap seperti Day 2 sehingga kode backend tetap dapat dikompilasi untuk checkpoint register/login. Data Task lama masih ada; penanganannya baru diperlukan pada langkah 6.
+**Verifikasi langkah 1:** buka file migrasi yang baru dibuat dan tunjukkan SQL pembuatan tabel User serta unique constraint pada email. Cek bahwa model Task belum memiliki `userId`; relasinya baru dibuat setelah register, login, dan guard dapat diuji.
 
-> `backend/prisma/seed.ts` lama membuat tiga task tanpa `userId` dan menghapus task lama. **Jangan jalankan seed lama setelah langkah 6**. Bagian akhir materi memberi pilihan seed baru.
+> `backend/prisma/seed.ts` lama membuat tiga task tanpa `userId` dan menghapus task lama. Setelah relasi pemilik dibuat, seed lama bahkan membuat **build TypeScript gagal** karena setiap task wajib punya `userId`. Langkah 6d akan menonaktifkannya secara jelas; lampiran memberi pilihan seed baru.
 
 ## 2. Siapkan bcrypt, JWT, dan secret server
 
-**Tujuan kecil:** menyiapkan dua alat dengan tugas berbeda. Dari `backend/`:
+**Tujuan langkah ini:** menyiapkan library untuk password hashing dan JWT. Sebelum memasang package, jelaskan alur data yang akan dibuat. Password tidak dienkripsi lalu didekripsi saat login; service akan memakai `bcrypt.compare()` untuk memeriksa password terhadap hash yang tersimpan.
+
+```text
+Register: password asli ──bcrypt.hash──> hash di database
+Login:    password dari form + hash di database ──bcrypt.compare──> cocok/tidak
+Sesudah login berhasil: ID user ──JWT sign──> token untuk request berikutnya
+```
+
+Dari `backend/`:
 
 ```bash
 pnpm add bcrypt @nestjs/jwt
@@ -117,25 +131,33 @@ pnpm add -D @types/bcrypt
 openssl rand -hex 32
 ```
 
-Salin keluaran perintah terakhir ke baris baru di `backend/.env`:
+`pnpm add` memasang dependency runtime backend; `-D @types/bcrypt` menambah deklarasi tipe untuk TypeScript; `openssl rand -hex 32` menghasilkan secret acak. Salin keluarannya ke baris baru di `backend/.env`:
 
 ```dotenv
 JWT_SECRET=isi-dengan-hasil-openssl-anda
 ```
 
-Restart `pnpm start:dev` setelah mengubah `.env` agar proses membaca secret baru. `JWT_SECRET` hanya milik **backend**. Jangan menaruhnya di `frontend/.env` atau variabel `NEXT_PUBLIC_` karena nilai `NEXT_PUBLIC_` masuk ke kode browser.
+Restart `pnpm start:dev` setelah mengubah `.env` agar proses backend membaca secret baru. `JWT_SECRET` dipakai server untuk menandatangani dan memverifikasi JWT; browser hanya menerima token yang sudah dibuat. Nilai `NEXT_PUBLIC_` dapat masuk ke kode browser, jadi `JWT_SECRET` harus tetap berada di environment backend.
 
-**Bedakan perannya:**
+**Peran tiap komponen:**
 
-- **bcrypt** mengubah password menjadi hash satu arah saat register dan membandingkan password dengan hash saat login. Password asli tidak bisa diambil kembali dari hash.
-- **JWT** adalah token yang **ditandatangani**, bukan dienkripsi. Isinya dapat dibaca, tetapi perubahan isinya membuat tanda tangannya tidak valid. Maka masukkan hanya identitas minimal, bukan password atau secret.
-- **Guard** memeriksa token pada tiap request yang dilindungi. Keberadaan token saja belum cukup; tanda tangan dan masa berlaku harus diverifikasi.
+- **bcrypt:** `bcrypt.hash(password, 10)` menghasilkan hash untuk disimpan dalam kolom `passwordHash`. Saat login, `bcrypt.compare(password, passwordHash)` memeriksa kecocokannya. Hash bcrypt memakai salt, sehingga meng-hash input yang sama lagi lalu membandingkan dua string hash bukan cara verifikasi yang benar.
+- **JWT:** `JwtService.signAsync({ sub: user.id })` menerbitkan token setelah login berhasil. Payload JWT dapat dibaca oleh pemegang token; signature memungkinkan server mendeteksi perubahan payload. Simpan klaim yang diperlukan saja, yaitu `sub` sebagai ID user.
+- **Guard:** `JwtAuthGuard` akan membaca header `Authorization: Bearer <token>`, lalu memverifikasi signature dan masa berlaku dengan `JwtService.verifyAsync()`. Jika valid, guard mengisi `request.user` agar controller dapat memakai ID hasil verifikasi.
 
-**Pertanyaan pemantik:** “Kalau password dan JWT sama-sama terlihat acak, apakah fungsinya sama?” Tidak: password di-hash untuk verifikasi kredensial; JWT membawa klaim identitas yang ditandatangani untuk request berikutnya.
+**Verifikasi langkah 2:** pastikan package terpasang, `JWT_SECRET` terisi di backend, dan backend dapat di-restart. Sebelum menulis service, bedakan dua nilai yang nanti terlihat pada kode: database menyimpan `passwordHash`, sedangkan request ke endpoint protected mengirim JWT melalui header `Authorization`.
 
 ## 3. Register: terima input, validasi, hash, simpan, respons aman
 
-**Tujuan kecil:** satu request bisa membuat User, tetapi responsnya tidak pernah mengandung `passwordHash`.
+**Tujuan langkah ini:** `POST /auth/register` membuat User dari email dan password yang valid. Respons hanya memuat `id` dan `email`; password dan `passwordHash` tidak dikirim kembali. Kaitkan dengan alur Day 1: route di controller menerima request, `ValidationPipe` memvalidasi DTO, service menjalankan aturan register, lalu Prisma menulis ke PostgreSQL.
+
+```text
+POST /auth/register { email, password }
+  → ValidationPipe memvalidasi RegisterDto
+  → AuthService membuat hash
+  → Prisma menyimpan User
+  → respons hanya { id, email }
+```
 
 ### 3a. DTO validasi
 
@@ -156,7 +178,18 @@ export class RegisterDto {
 }
 ```
 
-**Bedah baris:** `@IsEmail()` memeriksa format email; `@MinLength(8)` memberi batas minimum latihan; `!` memberi tahu TypeScript bahwa Nest akan mengisi field dari body request. `ValidationPipe` global di `main.ts` menjalankan dekorator tersebut, menolak field yang tidak dikenal, dan mengembalikan `400` jika input tidak sah. Bcrypt membatasi password berdasarkan **byte**, jadi pemeriksaan byte tambahan tetap perlu di service.
+**Penjelasan DTO per baris:**
+
+| Kode | Artinya saat request masuk |
+| --- | --- |
+| `export class RegisterDto` | Class untuk mendefinisikan dan memvalidasi body route register, seperti DTO Task di Day 1. |
+| `@IsEmail()` | Nilai email harus berbentuk alamat email. `"asal"` akan ditolak. |
+| `@MaxLength(254)` | Batas panjang email untuk latihan ini. |
+| `@IsString()` | Password harus berupa string, bukan angka atau object. |
+| `@MinLength(8)` / `@MaxLength(72)` | Batas panjang password yang dijelaskan ke peserta. Pemeriksaan **byte UTF-8** tetap dilakukan di service karena 72 karakter tidak selalu sama dengan 72 byte. |
+| Tanda `!` pada `email!`/`password!` | Menghindari error inisialisasi properti dari TypeScript. Tanda ini **tidak** memvalidasi nilai pada runtime; validasi dilakukan oleh decorator dan `ValidationPipe`. |
+
+`ValidationPipe` global di `backend/src/main.ts` menjalankan aturan DTO. Konfigurasi `whitelist: true` dan `forbidNonWhitelisted: true` juga menolak field yang tidak didefinisikan dalam DTO. Coba body `{ "email": "bukan-email", "password": "123" }`: server mengembalikan `400` dan `AuthService.register()` tidak dijalankan.
 
 ### 3b. Service register
 
@@ -197,17 +230,17 @@ export class AuthService {
 }
 ```
 
-**Bedah alur baris demi baris:**
+**Penjelasan service sesuai urutan eksekusi:**
 
-1. Import `bcrypt` dipakai untuk membuat hash. `Prisma` menyediakan tipe error database seperti `P2002`.
+1. Import `bcrypt` dipakai untuk membuat hash. `Prisma` menyediakan class error database yang dapat diperiksa saat unique constraint gagal.
 2. `@Injectable()` menjadikan service dapat di-inject oleh Nest. Constructor meminta `PrismaService` yang sudah ada di proyek.
-3. `trim().toLowerCase()` menormalisasi email supaya `Alice@Example.com` dan `alice@example.com` dianggap sama dalam alur ini. DTO divalidasi **sebelum** service, jadi email dengan spasi di awal/akhir bisa ditolak oleh `@IsEmail()` lebih dulu; `trim()` di sini bersifat defensif. Password tidak di-trim; spasi dapat menjadi bagian password.
-4. `Buffer.byteLength(...)` mencegah password multibyte melewati batas 72 byte bcrypt; `@MaxLength` menghitung karakter, sehingga keduanya punya peran berbeda.
+3. `trim().toLowerCase()` menormalisasi email supaya `User1@Example.com` dan `user1@example.com` menghasilkan nilai tersimpan yang sama. DTO divalidasi **sebelum** service, jadi email dengan spasi di awal/akhir dapat ditolak oleh `@IsEmail()` lebih dulu; `trim()` di sini bersifat defensif. Password sengaja **tidak** di-trim karena spasi dapat menjadi bagian password.
+4. `Buffer.byteLength(..., 'utf8')` menegakkan batas 72 byte yang diproses bcrypt. `@MaxLength(72)` menghitung panjang string, sehingga pemeriksaan byte ini tetap diperlukan untuk karakter multibyte.
 5. `await bcrypt.hash(..., 10)` menjalankan hash asinkron dengan cost factor 10. Hasil yang disimpan adalah `passwordHash`.
 6. `data` berisi nilai yang masuk database. `select` menentukan field respons secara eksplisit: hanya `id` dan `email`.
-7. `P2002` berarti unique constraint dilanggar; ubah menjadi `409 Conflict`. Error lain tetap dilempar agar tidak menyembunyikan kegagalan database.
+7. `PrismaClientKnownRequestError` dengan kode `P2002` berarti unique constraint dilanggar, misalnya email sudah ada. Service mengubahnya menjadi `409 Conflict`; error database lain tetap dilempar agar penyebabnya terlihat.
 
-**Demo singkat di papan:** tulis `password -> bcrypt.hash -> passwordHash`. Saat login nanti alurnya `password dari form + passwordHash di DB -> bcrypt.compare -> true/false`; jangan mencoba meng-hash ulang lalu membandingkan dua string hash, karena bcrypt memakai salt.
+Bedakan tiga nilai pada method ini: `body.password` dipakai sebagai input hashing, `passwordHash` disimpan, dan hasil `select: { id: true, email: true }` menjadi respons HTTP. Pemilihan field dilakukan di query backend, sehingga `passwordHash` tidak masuk ke object respons.
 
 ### 3c. Controller, module, dan pemasangan di AppModule
 
@@ -261,21 +294,39 @@ imports: [
 
 Potongan `imports` di atas **menggantikan array lama**, bukan membuat dekorator `@Module` kedua. Import AppController/AppService dan isi metadata lain tetap seperti file Day 2.
 
-**Bedah baris:** `@Controller('auth')` memberi awalan `/auth`. `@Post('register')` membuat `POST /auth/register`. `@Body()` mengambil JSON body dan DTO memvalidasinya. Controller meneruskan pekerjaan ke service. `AuthModule` mengimpor `PrismaModule` supaya `AuthService` dapat menerima `PrismaService`; provider Nest memiliki cakupan module, tidak otomatis tersedia hanya karena `AppModule` juga mengimpor Prisma.
+**Hubungan controller dan module:**
+
+| Kode | Fungsi |
+| --- | --- |
+| `@Controller('auth')` + `@Post('register')` | Menghasilkan alamat `POST /auth/register`. Dua potongan path itu digabung Nest. |
+| `@Body() body: RegisterDto` | Mengambil JSON body. `ValidationPipe` membaca dekorator pada DTO sebelum memanggil service. |
+| `return this.authService.register(body)` | Controller meneruskan data yang sudah divalidasi ke service dan mengembalikan hasilnya. Aturan hashing dan akses database berada di service. |
+| `providers: [AuthService]` | Memberi tahu Nest cara membuat service. |
+| `imports: [PrismaModule]` | Membuat `PrismaService` dari module Prisma tersedia bagi `AuthService`. Import `PrismaModule` di AppModule saja tidak otomatis membagikan provider ke semua module. |
+| `AuthModule` di `AppModule.imports` | Mengaktifkan route auth di aplikasi utama. |
 
 Tes dari terminal lain:
 
 ```bash
 curl -i http://localhost:3001/auth/register \
   -H 'Content-Type: application/json' \
-  -d '{"email":"alice@example.com","password":"contohPassword123"}'
+  -d '{"email":"user1@example.com","password":"passwordUser1_123"}'
 ```
 
-**Checkpoint 3:** respons pertama `201` dengan `{id,email}`; request yang sama lagi `409`; email salah format atau password terlalu pendek `400`. Pastikan tidak ada `password` atau `passwordHash` di respons. Pada database, kolom `passwordHash` terisi string hash, bukan password asli.
+**Verifikasi langkah 3:** jalankan tiga request berurutan: register pertama menghasilkan `201` dengan `{ id, email }`; email yang sama menghasilkan `409`; email salah format atau password terlalu pendek menghasilkan `400`. Periksa status dan body setiap respons. Pastikan `password` serta `passwordHash` tidak muncul di respons, lalu lihat bahwa kolom `passwordHash` di database berisi hash. Perbedaan `400` dari validasi DTO dan `409` dari unique constraint perlu jelas sebelum masuk ke login.
 
 ## 4. Login: bandingkan password, baru terbitkan JWT
 
-**Tujuan kecil:** pisahkan “password cocok” dari “token diterbitkan”. Tunjukkan dahulu logika `bcrypt.compare`, lalu pasang `JwtModule`.
+**Tujuan langkah ini:** memeriksa kredensial user yang sudah terdaftar, lalu menerbitkan JWT hanya jika password cocok. Login tidak membuat User baru. Mulai dari alur service yang paling singkat berikut; potongan ini adalah **ilustrasi**, bukan method tambahan yang perlu ditempel ke file:
+
+```ts
+const user = await prisma.user.findUnique({ where: { email } });
+const cocok = user && await bcrypt.compare(passwordDariForm, user.passwordHash);
+if (!cocok) throw new UnauthorizedException('Email atau password salah');
+// Setelah lolos baris ini, barulah buat JWT.
+```
+
+Baris `bcrypt.compare()` menerima password dari request dan `passwordHash` dari database. `bcrypt.hash()` memakai salt, jadi memanggilnya kembali lalu membandingkan dua string hash tidak memverifikasi password dengan benar.
 
 ### 4a. DTO login
 
@@ -293,7 +344,7 @@ export class LoginDto {
 }
 ```
 
-Login tidak perlu `@MinLength(8)`: password yang salah tetap diproses sebagai percobaan login dan mendapat `401` yang sama dengan email tidak dikenal. Format input yang bukan email/string tetap `400`.
+Login tidak memakai `@MinLength(8)`: password yang tidak cocok diproses sebagai percobaan login dan mendapat `401` yang sama dengan email tidak dikenal. Email yang formatnya salah atau password yang bukan string tetap mendapat `400` dari DTO. Jadi DTO memvalidasi bentuk request, sedangkan service memverifikasi kredensial.
 
 ### 4b. Konfigurasi penandatanganan
 
@@ -331,7 +382,18 @@ import { AuthService } from './auth.service';
 export class AuthModule {}
 ```
 
-**Bedah baris:** `registerAsync` meminta konfigurasi saat Nest membangun module. `getOrThrow` menolak key yang tidak ada; pemeriksaan panjang tambahan menolak string kosong atau terlalu pendek. Gunakan hasil acak `openssl` dari langkah 2, bukan string yang mudah ditebak. `expiresIn: '1h'` berarti token berlaku satu jam. Nilai ini untuk latihan; bukan mekanisme refresh token.
+**Penjelasan konfigurasi:**
+
+| Baris | Mengapa ada? |
+| --- | --- |
+| `JwtModule.registerAsync(...)` | Nest menyiapkan `JwtService` memakai konfigurasi saat aplikasi dinyalakan. |
+| `imports: [ConfigModule]` dan `inject: [ConfigService]` | Factory menerima pembaca environment dari Nest. |
+| `getOrThrow('JWT_SECRET')` | Aplikasi gagal start jika secret tidak ada; lebih jelas daripada menerbitkan token dengan konfigurasi kosong. |
+| `if (secret.length < 32)` | Menolak konfigurasi secret yang terlalu pendek saat startup. Panjang saja tidak menjamin kualitas secret; gunakan nilai acak dari `openssl`. |
+| `secret` | Kunci yang dipakai server untuk tanda tangan dan verifikasi token. Tidak dikirim ke frontend. |
+| `expiresIn: '1h'` | Token berlaku satu jam. Jika habis, user perlu login lagi pada alur latihan ini. |
+
+Jika `JWT_SECRET` berubah setelah token diterbitkan, token lama tidak lolos `verifyAsync()`: signature token tersebut dibuat dengan secret sebelumnya.
 
 ### 4c. Tambahkan login ke service
 
@@ -349,6 +411,11 @@ Di bawah method `register`, tambahkan:
 ```ts
 async login(body: LoginDto) {
   const email = body.email.trim().toLowerCase();
+
+  if (Buffer.byteLength(body.password, 'utf8') > 72) {
+    throw new UnauthorizedException('Email atau password salah');
+  }
+
   const user = await this.prisma.user.findUnique({ where: { email } });
 
   if (!user || !(await bcrypt.compare(body.password, user.passwordHash))) {
@@ -364,7 +431,18 @@ async login(body: LoginDto) {
 }
 ```
 
-**Bedah baris:** `findUnique` mencari email yang sudah dinormalisasi; `bcrypt.compare` mengecek password terhadap hash tanpa membuka password lama. Pesan `401` sama untuk email tidak ditemukan dan password salah sehingga respons tidak langsung membocorkan apakah sebuah email terdaftar. `sub` adalah *subject* atau ID user. `signAsync` menandatangani payload `{sub: user.id}`. Respons mengirim token dan data user publik saja.
+**Baca method login sesuai urutan eksekusi:**
+
+| Kode | Input → hasil |
+| --- | --- |
+| `body.email.trim().toLowerCase()` | Email dari form → bentuk yang sama dengan saat register. |
+| `Buffer.byteLength(body.password, 'utf8') > 72` | Login juga menolak password yang melewati batas byte bcrypt, dengan respons `401` yang sama. Tanpa ini, bagian password setelah byte ke-72 bisa diabaikan bcrypt. |
+| `findUnique({ where: { email } })` | Email → satu User atau `null`. Di sini service boleh membaca `passwordHash` untuk verifikasi. |
+| `!user || !(await bcrypt.compare(...))` | Akun tidak ada atau password tidak cocok → `401`. Isi pesan sama untuk dua kondisi itu; ini bukan jaminan semua perbedaan waktu respons hilang. |
+| `this.jwt.signAsync({ sub: user.id })` | ID user → JWT yang ditandatangani. `sub` berarti *subject*, yaitu siapa pemilik token. |
+| `return { accessToken, user: { id, email } }` | Respons berisi JWT untuk request berikutnya dan data user publik. `passwordHash` tidak ikut keluar. |
+
+Password tetap diminta **setiap kali user melakukan login**. Sesudah login berhasil, frontend mengirim `accessToken` pada request ke endpoint protected; guard memverifikasi token itu setiap kali request masuk.
 
 ### 4d. Tambahkan endpoint login
 
@@ -378,19 +456,21 @@ login(@Body() body: LoginDto) {
 }
 ```
 
-`@Post()` Nest secara default mengembalikan `201`. `@HttpCode(HttpStatus.OK)` menjadikan login `200` sesuai kontrak kita: login tidak membuat record baru.
+`@Post()` Nest secara default mengembalikan `201`. `@HttpCode(HttpStatus.OK)` menjadikan login `200` sesuai kontrak kita: login tidak membuat record baru. Controller ini tetap hanya meneruskan body ke `AuthService.login()`; pengecekan password tetap di service.
 
 ```bash
 curl -i http://localhost:3001/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"alice@example.com","password":"contohPassword123"}'
+  -d '{"email":"user1@example.com","password":"passwordUser1_123"}'
 ```
 
-**Checkpoint 4:** login benar memberi `200` dan `accessToken`; password salah `401`. Ajak peserta melihat tiga bagian JWT yang dipisahkan titik, lalu jelaskan: payload dapat dibaca, tetapi **jangan** percaya hasil decode tanpa verifikasi tanda tangan server. Jangan mencetak token atau password ke log.
+**Verifikasi langkah 4:** login dengan password benar menghasilkan `200` dan `accessToken`; password salah menghasilkan `401`. JWT memiliki tiga bagian, `header.payload.signature`. Payload dapat dibaca tanpa secret, sehingga hasil decode saja tidak membuktikan token valid; validitasnya diperiksa dengan `verifyAsync()` pada langkah berikutnya. Hindari mencetak token atau password ke log dan slide publik.
 
 ## 5. Guard: verifikasi token dan buat endpoint `/auth/me`
 
-**Tujuan kecil:** buat satu endpoint protected sebelum mengubah seluruh CRUD. Dengan begitu peserta dapat melihat persis kapan request berhenti di guard.
+**Tujuan langkah ini:** lindungi `GET /auth/me` dengan `JwtAuthGuard` sebelum memasang guard pada CRUD Task. Endpoint ini memudahkan peserta menguji tiga kondisi: header tidak ada, JWT tidak valid, dan JWT valid.
+
+Saat live coding, bangun guard secara bertahap: **(1) baca header → (2) verifikasi JWT → (3) validasi `sub` dan cari User → (4) isi `request.user`**. Setelah tiap tahap, jelaskan nilai yang masuk, pemeriksaan yang dilakukan, dan kapan `401` dikembalikan. Kode berikut menunjukkan hasil akhir tahap ini.
 
 Buat `backend/src/auth/auth.types.ts`:
 
@@ -401,6 +481,8 @@ export type AuthenticatedRequest = Request & {
   user: { id: number };
 };
 ```
+
+`Request` adalah tipe request HTTP dari Express yang dipakai proyek ini. Interseksi tipe `& { user: { id: number } }` menyatakan bahwa controller protected menerima request dengan ID user. Deklarasi tipe hanya diperiksa oleh TypeScript; `request.user` pada runtime tetap harus diisi oleh guard.
 
 Buat `backend/src/auth/jwt-auth.guard.ts`:
 
@@ -454,15 +536,21 @@ export class JwtAuthGuard implements CanActivate {
 }
 ```
 
-**Bedah baris sesuai urutan request:**
+**Penjelasan guard sesuai urutan eksekusi:**
 
-1. `context.switchToHttp().getRequest()` mengambil request HTTP yang sedang diproses.
-2. `authorization` dipecah menjadi skema `Bearer` dan isi token; format yang hilang/salah menjadi `401`.
-3. `verifyAsync` memeriksa tanda tangan dan waktu kedaluwarsa memakai secret dari `JwtModule`. `decode` saja tidak melakukan ini.
-4. Pemeriksaan runtime `sub` memastikan ID bertipe integer positif; tipe TypeScript sendiri tidak memvalidasi isi token dari jaringan.
-5. Query User memastikan akun tersebut masih ada.
-6. `request.user` ditulis **oleh server setelah verifikasi**. Nilai inilah yang boleh dipercaya controller; bukan `userId` dari body/query browser.
-7. `return true` membiarkan request lanjut ke controller. Bila ada exception, controller tidak dijalankan.
+| Kode | Apa yang masuk? | Keputusan / hasil |
+| --- | --- | --- |
+| `implements CanActivate` | Nest memanggil `canActivate` sebelum handler route. | Method harus mengembalikan `true` atau melempar exception. |
+| `context.switchToHttp().getRequest()` | Request HTTP saat ini. | Guard bisa membaca header dan, setelah aman, menambah `request.user`. |
+| `authorization?.split(' ') ?? []` | Contoh: `Bearer abc.def.ghi`. | Dipecah menjadi skema, token, dan kemungkinan bagian tambahan. `?.` aman jika header tidak ada. |
+| `scheme !== 'Bearer' || !token || extra` | Format header. | Salah format → `401`. Ini baru memeriksa **bentuk**, belum keaslian token. |
+| `jwt.verifyAsync(token)` | Teks JWT dari header. | Memeriksa tanda tangan dan masa berlaku dengan secret server. `decode` saja tidak melakukan ini. |
+| `typeof payload.sub ...` | Klaim `sub` dari token yang sudah diverifikasi. | Hanya integer positif diterima sebagai ID. Tipe TypeScript tidak memvalidasi isi jaringan saat runtime. |
+| `prisma.user.findUnique(...)` | ID dari klaim `sub`. | Akun yang sudah tidak ada ditolak `401`. `select: { id: true }` cukup untuk guard. |
+| `request.user = { id: user.id }` | User yang ditemukan server. | Controller dapat memakai ID hasil verifikasi ini. `userId` dari body atau query browser tidak dipakai untuk menentukan pemilik Task. |
+| `return true` | Semua pemeriksaan lolos. | Nest melanjutkan request ke controller. Jika ada exception sebelumnya, controller tidak berjalan. |
+
+Jika angka `sub` pada payload JWT diubah tanpa menandatangani ulang token dengan secret server, `verifyAsync()` menolaknya sebelum query User dijalankan. Pemeriksaan tipe dan nilai `sub` baru berlaku setelah signature dan masa berlaku token lolos.
 
 Di `backend/src/auth/auth.module.ts`, tambahkan import `JwtAuthGuard`, lalu ubah bagian provider/export menjadi:
 
@@ -471,7 +559,7 @@ providers: [AuthService, JwtAuthGuard],
 exports: [JwtAuthGuard, JwtModule],
 ```
 
-`JwtModule` ikut diekspor agar `JwtService` tersedia saat guard dipakai dari `TasksModule`. Setelah mengubah metadata module, restart Nest dan lihat apakah semua dependency guard berhasil dibuat.
+`JwtAuthGuard` memerlukan `JwtService` dan `PrismaService`. `AuthModule` sudah mengimpor kedua module penyedianya. Kita mengekspor **guard dan `JwtModule` yang sudah dikonfigurasi** agar saat guard dipakai pada controller di `TasksModule`, Nest juga dapat menyediakan `JwtService` dalam konteks module itu. Tanpa ekspor `JwtModule`, aplikasi dapat gagal start dengan pesan `Nest can't resolve dependencies of the JwtAuthGuard` saat guard ditempel ke `TasksController`. Setelah mengubah metadata module, restart Nest dan lihat apakah dependency guard berhasil dibuat.
 
 Di `backend/src/auth/auth.controller.ts`, tambahkan `Get`, `Req`, `UseGuards` ke import Nest, dan import `JwtAuthGuard` serta tipe `AuthenticatedRequest` dengan sintaks berikut:
 
@@ -480,7 +568,7 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import type { AuthenticatedRequest } from './auth.types';
 ```
 
-`import type` wajib untuk tipe pada parameter yang memakai decorator `@Req()` di konfigurasi TypeScript proyek ini. Tambahkan method berikut:
+`import type` diperlukan untuk tipe parameter yang memakai decorator `@Req()` pada konfigurasi TypeScript proyek ini. Tambahkan method berikut:
 
 ```ts
 @UseGuards(JwtAuthGuard)
@@ -489,6 +577,8 @@ async me(@Req() request: AuthenticatedRequest) {
   return this.authService.findPublicUser(request.user.id);
 }
 ```
+
+Untuk request `GET /auth/me`, Nest menjalankan `@UseGuards(JwtAuthGuard)` sebelum method controller. Jika guard mengembalikan `true`, `@Req()` memberi controller request yang telah berisi `user.id`, lalu service mengambil data publik User tersebut. Jika token tidak ada atau tidak valid, `findPublicUser()` tidak dijalankan.
 
 Di `AuthService`, tambahkan:
 
@@ -503,27 +593,47 @@ async findPublicUser(id: number) {
 }
 ```
 
-**Kenapa ada `select` lagi?** Walaupun guard sudah mengecek user, endpoint profil tetap memilih field yang boleh keluar. Jangan pernah me-return record User lengkap karena berisi `passwordHash`.
+Guard membaca ID untuk memastikan akun masih ada. `/auth/me` melakukan query lagi untuk mengambil email yang akan ditampilkan, dengan `select: { id: true, email: true }`. Dua query ini membuat peran guard dan respons profil terpisah dan eksplisit. Mengembalikan record User lengkap akan ikut mengirim `passwordHash`.
 
 Tes tanpa token, lalu dengan token yang disalin dari respons login:
 
 ```bash
 curl -i http://localhost:3001/auth/me
 
-TOKEN_A='tempel-accessToken-A-di-sini'
+TOKEN_USER_1='tempel-accessToken-user1-di-sini'
 curl -i http://localhost:3001/auth/me \
-  -H "Authorization: Bearer $TOKEN_A"
+  -H "Authorization: Bearer $TOKEN_USER_1"
 ```
 
-**Checkpoint 5:** tanpa token `401`; dengan token valid `200` berisi `{id,email}`; token yang diubah satu karakter `401`.
+**Verifikasi langkah 5:** tanpa token, respons `401` berasal dari pemeriksaan header; dengan token valid, respons `200` berisi `{ id, email }`; dengan token yang satu karakternya diubah, respons `401` berasal dari `verifyAsync()`. Pada tahap ini guard baru dipasang pada `/auth/me`; route Task belum protected dan akan diubah pada langkah 6.
 
 ## 6. Task milik user: lindungi semua route dan batasi semua query
 
-**Tujuan kecil:** token yang valid belum otomatis mencegah Bob membuka task Alice. Guard menjawab “siapa?”, sedangkan service harus menjawab “task ini punya siapa?”.
+**Tujuan langkah ini:** setelah JWT valid, backend tetap harus membatasi akses Task berdasarkan `userId`. `JwtAuthGuard` mengidentifikasi user dari token dan mengisi `request.user`; `TasksService` memakai ID tersebut dalam query Prisma. Tanpa filter ini, user yang sudah login dapat mengakses Task user lain.
+
+Gunakan contoh data berikut untuk menjelaskan filter query. Angka `1` dan `2` hanya contoh; ID aktual bergantung pada isi database latihan.
+
+```text
+User pertama memiliki id 1; user kedua memiliki id 2.
+Task 12 tersimpan dengan userId 1.
+
+Request user pertama: { id: 12, userId: 1 } → task ditemukan.
+Request user kedua:   { id: 12, userId: 2 } → task tidak ditemukan → 404.
+```
+
+ID Task pada URL dapat diketahui user lain. Karena itu GET detail, PATCH, dan DELETE harus memakai `id` **dan** `userId` dari `request.user`. Untuk daftar, `findMany()` juga memerlukan `where: { userId }`. Menambahkan guard saja hanya memverifikasi token; query tanpa filter masih dapat mengembalikan Task milik user lain.
 
 ### 6a. Hubungkan model Task ke User
 
-Hentikan proses `pnpm start:dev` sebentar. Pada tahap ini schema, Prisma Client, dan service Task harus diubah sebagai satu kelompok sebelum backend dapat berjalan lagi. Di `backend/prisma/schema.prisma`, tambahkan `tasks Task[]` pada model `User` yang dibuat di langkah 1, lalu tambahkan tiga baris terkait pemilik pada model `Task` yang sudah ada:
+**Sebelum migrasi, cek data latihan yang sedang dipakai.** Dari terminal lain, saat backend masih hidup:
+
+```bash
+curl -s http://localhost:3001/tasks
+```
+
+Jalur utama workshop memakai tabel Task kosong, sehingga responsnya `[]`. Jika ada Task lama, kolom `userId` yang wajib tidak dapat ditambahkan sebelum setiap baris mempunyai pemilik. Untuk database lokal latihan, pilih reset seperti langkah 0 dan daftarkan ulang user; jika datanya perlu dipertahankan, tambahkan `userId` sebagai nullable, isi pemilik tiap Task (backfill), lalu ubah menjadi wajib. Seed lama proyek membuat tiga Task tanpa `userId`, sehingga jangan jalankan seed tersebut sebelum diperbarui.
+
+Setelah memastikan tabel Task kosong, hentikan proses `pnpm start:dev` sebentar. Schema, Prisma Client, dan service Task harus diubah sebagai satu kelompok sebelum backend dapat berjalan lagi. Di `backend/prisma/schema.prisma`, tambahkan `tasks Task[]` pada model `User` yang dibuat di langkah 1, lalu tambahkan tiga baris terkait pemilik pada model `Task` yang sudah ada:
 
 ```prisma
 model User {
@@ -549,9 +659,18 @@ model Task {
 }
 ```
 
-**Bedah baris:** `tasks Task[]` berarti satu user dapat memiliki banyak task. `userId Int` adalah foreign key yang benar-benar disimpan pada setiap task dan wajib diisi. `@relation` menunjuk `User.id`, sedangkan indeks mempercepat pencarian task berdasarkan pemilik. Kini setiap kartu task memiliki nomor pemilik.
+**Bedah relasi baris demi baris:**
 
-Jika reset database latihan sudah dilakukan di persiapan, tabel Task kosong dan dari `backend/` Anda dapat menjalankan:
+| Kode | Penjelasan untuk peserta |
+| --- | --- |
+| `tasks Task[]` di `User` | Satu User dapat memiliki banyak Task. Field ini adalah sisi relasi pada model `User`. |
+| `userId Int` di `Task` | Foreign key pemilik yang tersimpan di tabel Task dan wajib berisi nilai. |
+| `user User @relation(fields: [userId], references: [id])` | Relasi Prisma yang menghubungkan `Task.userId` dengan `User.id`. |
+| `@@index([userId])` | Indeks membantu query daftar task yang berulang kali memakai filter pemilik. |
+
+Saat membuat Task, backend mengambil `userId` dari `request.user.id` yang diisi guard. Body dari browser tidak menentukan pemilik Task.
+
+Jika cek tadi menunjukkan `[]`, dari `backend/` jalankan:
 
 ```bash
 pnpm exec prisma validate
@@ -559,7 +678,7 @@ pnpm exec prisma migrate dev --name add_task_owners
 pnpm exec prisma generate
 ```
 
-Jika tabel Task masih berisi baris tanpa pemilik, **jangan paksa migrasi ini**. Pilih reset lokal yang dijelaskan di awal (konsekuensinya akun Alice/Bob dari latihan auth juga hilang sehingga harus didaftarkan ulang), atau lakukan jalur `userId` nullable → tentukan pemilik tiap baris → backfill → ubah `userId` menjadi wajib. Panduan utama memakai tabel Task kosong agar fokus peserta tetap pada auth dan ownership. Setelah `generate`, kode TasksService lama memang tidak cocok dengan relasi wajib yang baru; selesaikan 6b–6c sebelum menyalakan Nest lagi.
+`validate` memeriksa schema, `migrate dev` menerapkan perubahan tabel dan relasi, sedangkan `generate` memperbarui tipe Prisma Client. Jika ternyata masih ada Task tanpa pemilik, selesaikan reset atau backfill sebelum menjalankan migrasi wajib. Reset juga menghapus akun uji sehingga register dan login harus diulang. Setelah `generate`, `TasksService` lama belum memenuhi relasi wajib; selesaikan 6b–6c sebelum menjalankan Nest kembali.
 
 ### 6b. Hubungkan module dan controller
 
@@ -580,9 +699,9 @@ import { TasksService } from './tasks.service';
 export class TasksModule {}
 ```
 
-`AuthModule` tadi mengekspor `JwtAuthGuard` dan `JwtModule`; tanpa import ini Nest tidak dapat menyediakan guard beserta `JwtService` di `TasksModule`.
+`TasksModule` mengimpor `AuthModule` agar `JwtAuthGuard` dan `JwtModule` yang diekspor module tersebut tersedia untuk controller Task. `JwtModule` diperlukan oleh `JwtService` di guard. `PrismaModule` tetap diimpor untuk `PrismaService` yang dipakai `TasksService` dan guard.
 
-Ganti isi `backend/src/tasks/tasks.controller.ts` menjadi:
+Ubah controller secara bertahap. Pertama, letakkan `@UseGuards(JwtAuthGuard)` pada class; setelah backend dijalankan kembali, request tanpa token pada route Task akan menghasilkan `401`. Kedua, tambahkan `@Req() request` pada `create` dan `findAll`, lalu kirim `request.user.id` ke service. Terapkan pola yang sama pada detail, PATCH, dan DELETE. Acuan akhir `backend/src/tasks/tasks.controller.ts` adalah:
 
 ```ts
 import {
@@ -637,9 +756,22 @@ export class TasksController {
 }
 ```
 
-**Bedah baris:** `@UseGuards` di tingkat class mencakup kelima route. Setiap method mengambil `request.user.id` yang dipasang guard, lalu meneruskannya ke service. `ParseIntPipe` tetap menolak ID URL yang bukan angka. DTO Task yang sudah ada tetap dipakai; browser **tidak** mengirim `userId` di body.
+**Baca controller dari atas ke bawah:**
+
+| Kode | Akibatnya |
+| --- | --- |
+| `@UseGuards(JwtAuthGuard)` di atas class | **Semua** route Task diperiksa. Jika diletakkan hanya pada `findAll`, route PATCH/DELETE masih terbuka. |
+| `@Controller('tasks')` | URL tetap `/tasks`, jadi frontend Day 2 tidak perlu mengganti path. |
+| `@Req() request: AuthenticatedRequest` | Method membaca `request.user.id` setelah guard berhasil memverifikasi JWT dan mengisi `request.user`. |
+| `@Body() body: CreateTaskDto` atau `UpdateTaskDto` | Aturan input Day 1 tetap digunakan. Browser **tidak** mengirim `userId` pada body. |
+| `@Param('id', ParseIntPipe)` | ID URL diubah menjadi number; teks seperti `/tasks/abc` ditolak. |
+| `this.tasksService...(request.user.id, ...)` | Service selalu menerima ID pemanggil yang berasal dari guard. |
+
+Pada tahap ini guard sudah aktif, tetapi pembatasan kepemilikan belum lengkap sampai query di service juga menerima dan memakai `userId`.
 
 ### 6c. Filter setiap operasi di service
+
+Kerjakan service dalam tiga tahap: `create` dan `findAll` lebih dulu agar terlihat bagaimana Task mendapat pemilik dan daftar difilter; lanjutkan `findOne` dengan filter `id` serta `userId`; terakhir ubah `update` dan `remove` agar operasi tulis memakai kedua nilai itu. Di setiap method, tunjukkan asal `userId` dari controller dan tempat nilai tersebut masuk ke query Prisma. Jalankan kembali backend setelah semua method selesai, karena schema sudah mewajibkan relasi baru.
 
 Ganti isi `backend/src/tasks/tasks.service.ts` menjadi:
 
@@ -709,22 +841,71 @@ export class TasksService {
 }
 ```
 
-**Bedah operasi satu per satu:**
+**Jelaskan perubahan setiap method dari Day 1:**
 
-- `create`: service menulis `userId` dari parameter yang datang dari guard. Walau browser mencoba mengirim `userId` lain, DTO/ValidationPipe menolak field asing; service juga tidak memakai field itu.
-- `findAll`: `where: { userId }` adalah pagar utama daftar task. Tanpanya, semua task bocor.
-- `findOne`: gabungan `id` dan `userId` hanya menemukan task milik pemanggil. Task tidak ada dan task orang lain sama-sama menghasilkan `404`.
-- `update`/`remove`: `where: { id, userId }` membatasi **operasi tulis** secara atomik di database. Jangan hanya memfilter daftar di UI atau mengecek kepemilikan setelah update.
-- `P2025`: Prisma tidak menemukan record yang cocok untuk update/delete. Kita terjemahkan menjadi `404`; error database lain tetap muncul sebagai error sebenarnya.
-- `data` update menyebut field yang boleh diubah satu per satu; `userId` tidak dapat dipindah melalui PATCH.
+| Method | Baris penting | Efeknya |
+| --- | --- | --- |
+| `create` | `userId` di `data` | Task baru tersimpan dengan ID user dari JWT yang telah diverifikasi. Form tidak mengirim ID pemilik. |
+| `findAll` | `where: { userId }` | Prisma hanya mengambil Task milik user pada request. Tanpa filter ini, daftar memuat Task semua user. |
+| `findOne` | `where: { id, userId }` | ID Task dan ID pemilik harus cocok. Jika tidak ada baris yang cocok, service mengembalikan `404`. |
+| `update` | `where: { id, userId }` lalu `data` | Hanya Task dengan ID dan pemilik yang sesuai dapat diubah. `data` tidak memuat `userId`, sehingga PATCH tidak memindahkan kepemilikan. |
+| `remove` | `where: { id, userId }` | DELETE hanya menghapus Task milik user yang sedang login. |
+| `catch P2025` | `NotFoundException` | Prisma mengeluarkan `P2025` ketika baris untuk update/delete tidak ditemukan; service mengubahnya menjadi respons `404`. Error lain tetap dilempar. |
 
-Setelah service dan controller selesai, jalankan lagi `pnpm start:dev` dari `backend/`. Periksa bahwa Nest berhasil start tanpa error TypeScript atau dependency injection sebelum mencoba endpoint.
+**Contoh query untuk dijelaskan:** Jika Task ID `12` tersimpan dengan `userId: 1`, request dari user ID `2` menghasilkan filter `{ id: 12, userId: 2 }`. `findFirst` mengembalikan `null`, lalu service melempar `NotFoundException`. Pada `update` dan `remove`, Prisma menghasilkan `P2025` untuk filter yang tidak menemukan baris, lalu service mengembalikan `404`. Frontend mungkin menyembunyikan Task tersebut, tetapi pembatasan akses tetap harus berada pada query backend karena HTTP request dapat dikirim tanpa UI.
 
-**Checkpoint 6:** `GET /tasks` tanpa token menjadi `401`. Dengan token Alice, `POST /tasks` menciptakan task dengan `userId` Alice. Dengan token Bob, `GET /tasks` tidak menampilkan task Alice. Jangan lanjut ke frontend sebelum ini terbukti melalui API.
+Pada Prisma 7 yang dipakai repo ini, `id` adalah field unik dan `userId` boleh ditambahkan sebagai filter pada `update`/`delete`. Filter berada dalam **query tulis yang sama**, jadi kita tidak hanya mengecek kepemilikan lalu melakukan update terpisah. Ini penting ketika banyak request datang bersamaan.
+
+DTO Task lama tetap dipakai. `userId` yang dikirim dalam body ditolak oleh `ValidationPipe` karena `forbidNonWhitelisted` aktif. Satu batas DTO lama yang perlu diketahui: `UpdateTaskDto.title` memakai `@IsOptional()`, sehingga `title: null` dapat lolos DTO tetapi gagal di Prisma karena kolom `title` wajib. Kasus ini dapat dibahas sebagai validasi lanjutan setelah alur auth selesai.
+
+### 6d. Bereskan seed Day 2 yang tidak cocok dengan schema baru
+
+**Langkah ini diperlukan untuk checkout saat ini.** `backend/prisma/seed.ts` lama memakai `createMany` untuk tiga Task tanpa `userId`. Setelah `prisma generate`, data tersebut tidak lagi sesuai tipe Prisma Client dan `pnpm run build` gagal, meskipun seed tidak dijalankan.
+
+Karena akun uji dibuat melalui endpoint register, **ganti sementara seluruh isi** `backend/prisma/seed.ts` dengan:
+
+```ts
+console.info('Seed Day 3 belum dipakai; buat akun lewat /auth/register.');
+export {};
+```
+
+`console.info` menunjukkan bahwa seed Day 3 belum menyediakan data. `export {}` membuat file menjadi module TypeScript yang valid. Stub ini tidak menulis atau menghapus data. Lampiran A memuat contoh seed dengan `userId` jika nanti diperlukan.
+
+Sekarang jalankan lagi `pnpm start:dev` dari `backend/`. Periksa bahwa Nest berhasil start tanpa error TypeScript atau dependency injection sebelum mencoba endpoint. Untuk memastikan seluruh file backend ikut diperiksa, jalankan `pnpm run build` dari `backend/` setelah backend sudah bisa start.
+
+**Buat akun uji kedua melalui API** agar filter `userId` dapat diverifikasi sebelum masuk ke frontend. Akun `user1@example.com` dibuat pada langkah 3. Jika database sempat direset, register dan login lagi untuk memperoleh `TOKEN_USER_1` baru. Register `user2@example.com` lalu login dengan perintah berikut. Salin `accessToken` dari respons login ke variabel `TOKEN_USER_2`:
+
+```bash
+curl -i http://localhost:3001/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user2@example.com","password":"passwordUser2_123"}'
+
+curl -i http://localhost:3001/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"user2@example.com","password":"passwordUser2_123"}'
+
+TOKEN_USER_2='tempel-accessToken-user2-di-sini'
+```
+
+Jalankan tiga request berikut secara berurutan. `TOKEN_USER_1` berasal dari login `user1@example.com` pada langkah 5; setelah reset database, token lama harus diganti dengan hasil login baru.
+
+```bash
+curl -i http://localhost:3001/tasks
+
+curl -i http://localhost:3001/tasks \
+  -H "Authorization: Bearer $TOKEN_USER_1" \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"Task milik user pertama"}'
+
+curl -i http://localhost:3001/tasks \
+  -H "Authorization: Bearer $TOKEN_USER_2"
+```
+
+**Checkpoint 6:** `GET /tasks` tanpa token menghasilkan `401`. POST dengan `TOKEN_USER_1` membuat Task dengan `userId` milik `user1@example.com`. GET dengan `TOKEN_USER_2` menghasilkan daftar yang tidak memuat Task tersebut. Verifikasi ini memastikan guard dan filter query sudah bekerja sebelum frontend dibuat. Langkah 10 memuat skenario `curl` lengkap, termasuk akses detail, PATCH, dan DELETE lintas user.
 
 ## 7. Frontend tahap pertama: form register tanpa state login
 
-**Tujuan kecil:** peserta melihat bagaimana input React berubah menjadi request HTTP. Kita belum menyimpan token di tahap ini.
+**Tujuan langkah ini:** buat form register untuk memanggil endpoint yang sudah diuji dengan `curl`. Alurnya memakai konsep Day 2: nilai input disimpan di React state, `onChange` memperbaruinya, `onSubmit` mengirim request, lalu UI menampilkan respons. Register belum menghasilkan token; validasi dan penyimpanan user tetap dilakukan backend.
 
 ### 7a. API auth publik
 
@@ -734,7 +915,6 @@ Buat `frontend/src/features/auth/api/auth.api.ts`:
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
 
 export type PublicUser = { id: number; email: string };
-export type LoginResult = { accessToken: string; user: PublicUser };
 export type Credentials = { email: string; password: string };
 
 async function errorMessage(response: Response): Promise<string> {
@@ -759,30 +939,45 @@ export async function register(input: Credentials): Promise<PublicUser> {
   if (!response.ok) throw new Error(await errorMessage(response));
   return response.json();
 }
-
-export async function login(input: Credentials): Promise<LoginResult> {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-
-  if (!response.ok) throw new Error(await errorMessage(response));
-  return response.json();
-}
 ```
 
-**Bedah baris:** `NEXT_PUBLIC_API_URL` boleh dibaca browser karena hanya alamat API, bukan secret. `Credentials` adalah bentuk input kedua form. `fetch` mengirim JSON ke NestJS; `response.ok` hanya benar untuk status `2xx`, jadi `400/401/409` menjadi pesan yang dapat ditampilkan. Nest dapat mengirim `message` sebagai string atau array kesalahan validasi. `response.json()` mengubah JSON respons menjadi object JavaScript; anotasi `Promise<...>` membantu TypeScript, tetapi tidak menggantikan validasi server.
+**Baca satu fungsi dari input sampai output:**
+
+| Kode | Cara menjelaskan |
+| --- | --- |
+| `NEXT_PUBLIC_API_URL` | Alamat backend yang boleh diketahui browser. Fallback `localhost:3001` hanya memudahkan latihan lokal; file `.env` Day 2 tetap sumber konfigurasi utama. Jangan taruh `JWT_SECRET` di sini. |
+| `Credentials` | Tipe input untuk email dan password. TypeScript membantu saat menulis frontend; validasi request tetap dilakukan DTO backend. |
+| `fetch(.../auth/register, { method: 'POST' })` | Browser memanggil endpoint register yang sudah diuji dengan `curl`. Tidak ada header token karena user belum login. |
+| `Content-Type` + `JSON.stringify(input)` | Mengirim body sebagai JSON agar Nest dapat membaca `email` dan `password`. |
+| `response.ok` | `true` untuk status `2xx`; `400` dan `409` masuk jalur error. `fetch` sendiri tidak melempar hanya karena server membalas `400`. |
+| `errorMessage(response)` | Nest kadang mengirim `message` berupa string, kadang array kesalahan DTO. Helper mengubahnya menjadi satu teks untuk ditampilkan. |
+| `response.json()` | JSON sukses diubah menjadi object JavaScript. `Promise<PublicUser>` membantu tipe di editor, tetapi tidak memvalidasi isi respons saat runtime. |
+
+Saat menguji form nanti, buka Network tab untuk melihat URL `/auth/register`, request body, status HTTP, dan response body.
 
 ### 7b. Halaman register
 
-Buat `frontend/src/app/register/page.tsx`:
+**Urutan implementasi halaman register:**
+
+1. Buat route `frontend/src/app/register/page.tsx` yang hanya menampilkan judul. Jalankan Next dan buka `/register` untuk membuktikan bahwa nama folder menjadi URL.
+
+   ```tsx
+   export default function RegisterPage() {
+     return <main className="p-6"><h1>Register</h1></main>;
+   }
+   ```
+
+2. Tambahkan `"use client"` dan dua `useState` untuk email/password. Hubungkan tiap input dengan `value` dan `onChange`. Untuk mengamati perubahan React state sebelum mengirim request, tampilkan teks sementara `<p>Email: {email}</p>`; jangan tampilkan nilai password. Hapus teks sementara setelah alurnya terlihat.
+3. Baru tambahkan `handleSubmit`: `preventDefault` → `await register({ email, password })` → sukses/error. Uji satu register di Network tab.
+4. Terakhir tambahkan `submitting`, tampilan `created`, label, validasi HTML, dan tautan login. Bandingkan hasil peserta dengan acuan akhir di bawah.
+
+**Acuan akhir** `frontend/src/app/register/page.tsx` setelah empat putaran:
 
 ```tsx
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { register } from "@/features/auth/api/auth.api";
 
 export default function RegisterPage() {
@@ -792,7 +987,7 @@ export default function RegisterPage() {
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
@@ -830,6 +1025,7 @@ export default function RegisterPage() {
             type="email"
             autoComplete="email"
             required
+            maxLength={254}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             className="mt-1 w-full rounded border p-2"
@@ -841,6 +1037,7 @@ export default function RegisterPage() {
             type="password"
             autoComplete="new-password"
             minLength={8}
+            maxLength={72}
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
@@ -848,7 +1045,7 @@ export default function RegisterPage() {
           />
         </label>
         {error && <p role="alert" className="text-red-600">{error}</p>}
-        <button disabled={submitting} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
+        <button type="submit" disabled={submitting} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
           {submitting ? "Menyimpan..." : "Buat akun"}
         </button>
       </form>
@@ -860,15 +1057,46 @@ export default function RegisterPage() {
 }
 ```
 
-**Penjelasan yang mudah diucapkan:** “State adalah memori komponen. Ketika peserta mengetik, `onChange` memanggil setter, React merender ulang, dan `value` menampilkan isi state terbaru. Saat tombol dikirim, `preventDefault` mencegah browser me-reload halaman. Kita tunggu `register`, lalu tampilkan sukses atau error. `submitting` mencegah klik ganda.”
+**Jelaskan halaman register dalam tiga bagian:**
 
-`"use client"` diperlukan karena halaman memakai state, event form, dan nanti browser storage. Validasi `required`/`minLength` membantu UX, tetapi validasi yang berwenang tetap DTO backend.
+1. **React state untuk input.** `useState("")` menyediakan nilai awal dan setter untuk `email` serta `password`. `value={email}` menampilkan nilai state pada input. Saat user mengetik, `onChange` mengambil `event.target.value`, `setEmail` memperbarui state, dan React melakukan render ulang dengan nilai terbaru. `error`, `submitting`, dan `created` menyimpan status UI form.
+2. **Submit.** `onSubmit={handleSubmit}` memanggil handler. `event.preventDefault()` mencegah reload biasa. `setSubmitting(true)` menonaktifkan tombol; `await register({ email, password })` menunggu server. Jika sukses, `setCreated(true)` mengganti form dengan pesan sukses dan password dikosongkan. Jika gagal, `catch` menampilkan pesan. `finally` melepas status proses dalam kedua keadaan.
+3. **JSX.** `"use client"` diperlukan karena ada state dan event di browser. `<label>` menghubungkan teks dengan input; `type="password"` menyamarkan tampilan saat mengetik, **bukan** mengenkripsi password. `required`, `minLength`, dan `maxLength` membantu pengguna sebelum request, tetapi DTO backend tetap memutuskan valid/tidak. `role="alert"` membantu pesan error diumumkan oleh teknologi bantu.
 
-**Checkpoint 7:** buka `http://localhost:3000/register`; buat akun Bob; buka kembali `/register`, lalu coba email yang sama lagi dan lihat pesan `409`. Form sengaja diganti dengan halaman sukses setelah pendaftaran pertama, jadi perlu membukanya kembali. Pada tab Network, tunjukkan request `POST /auth/register` dan respons aman tanpa hash.
+**Checkpoint 7:** buka `http://localhost:3000/register` dan daftarkan `user3@example.com` (`user1@example.com` dan `user2@example.com` sudah dibuat melalui `curl`). Buka lagi `/register` dan kirim email yang sama untuk melihat respons `409` beserta pesan error. Halaman dibuka ulang karena setelah register berhasil form diganti dengan tampilan sukses. Di Network tab, periksa `POST /auth/register` dan respons `201` yang hanya berisi `id` serta `email`, tanpa `passwordHash`. Register belum membuat user login karena belum ada token yang diterima atau disimpan frontend.
 
-## 8. Frontend tahap kedua: login dan simpan bukti login
+Tautan `/login` baru berfungsi setelah halaman login dibuat pada langkah 8. Sebelum itu, Next.js mengembalikan `404` untuk route yang belum tersedia.
 
-**Tujuan kecil:** setelah login, browser mempunyai access token untuk request berikutnya. Agar mudah didemokan, token disimpan pada `sessionStorage` tab saat ini. Token tetap ada saat halaman di-refresh dalam tab yang sama dan hilang ketika tab ditutup.
+## 8. Frontend tahap kedua: login dan simpan access token
+
+**Tujuan langkah ini:** setelah kredensial diverifikasi backend, frontend menerima access token dan menyimpannya untuk request protected berikutnya. Pada latihan ini, token disimpan di `sessionStorage` browser: nilainya tersedia saat halaman di-refresh pada tab yang sama dan umumnya terhapus ketika tab ditutup. `sessionStorage` di sini adalah penyimpanan browser untuk token, bukan sesi pada server.
+
+### 8a. Tambahkan request login ke API auth
+
+Di `frontend/src/features/auth/api/auth.api.ts`, tambahkan tipe ini setelah `PublicUser` dan `Credentials`:
+
+```ts
+export type LoginResult = { accessToken: string; user: PublicUser };
+```
+
+Lalu **tambahkan** fungsi berikut di bawah `register`; jangan membuat file API kedua:
+
+```ts
+export async function login(input: Credentials): Promise<LoginResult> {
+  const response = await fetch(`${API_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  if (!response.ok) throw new Error(await errorMessage(response));
+  return response.json();
+}
+```
+
+**Perbedaan dari register:** request body masih berisi email dan password, tetapi URL-nya `/auth/login`. Respons sukses berisi `accessToken` serta data publik `user`. Respons `401` diproses oleh `errorMessage`. Browser hanya mengirim kredensial; pembandingan password dilakukan oleh `bcrypt.compare` di `AuthService` backend.
+
+### 8b. Simpan token dan buat halaman login
 
 Buat `frontend/src/features/auth/session.ts`:
 
@@ -888,16 +1116,24 @@ export function clearToken() {
 }
 ```
 
-**Bedah baris:** `TOKEN_KEY` adalah nama penyimpanan, bukan secret. `saveToken` dipanggil setelah login berhasil. `getToken` dipanggil saat membuat request protected. `clearToken` dipanggil saat logout atau backend menolak token. Modul ini hanya dipakai dari kode yang berjalan di browser; jangan memanggil `window` saat render Server Component.
+**Penjelasan tiap fungsi:** `TOKEN_KEY` adalah nama key pada storage, bukan secret. `saveToken(token)` menyimpan nilai dari respons login; `getToken()` membacanya ketika request protected akan dibuat; `clearToken()` menghapusnya saat logout atau respons `401`. `window.sessionStorage` hanya tersedia di browser, jadi fungsi ini dipanggil dari event handler atau effect pada Client Component, bukan saat render Server Component.
 
-Buat `frontend/src/app/login/page.tsx`:
+**Urutan implementasi halaman login:** mulai dari form register. Ubah judul menjadi Login, gunakan `autoComplete="current-password"`, lalu pertahankan pola `useState` untuk `email`, `password`, `error`, dan `submitting`. Pada submit, fokus dulu pada tiga baris berikut:
+
+```ts
+const result = await login({ email, password });
+saveToken(result.accessToken);
+router.replace("/tasks");
+```
+
+`login(...)` menunggu respons backend. Jika sukses, `saveToken(...)` menyimpan access token dan `router.replace(...)` membuka halaman Task. Jika backend menolak kredensial, eksekusi masuk `catch`, sehingga token tidak disimpan oleh submit ini. Setelah alur tersebut berjalan, tambahkan penanganan error dan status tombol. **Acuan akhir** `frontend/src/app/login/page.tsx`:
 
 ```tsx
 "use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type FormEvent } from "react";
+import { useState, type SubmitEvent } from "react";
 import { login } from "@/features/auth/api/auth.api";
 import { saveToken } from "@/features/auth/session";
 
@@ -908,7 +1144,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     setSubmitting(true);
@@ -951,7 +1187,7 @@ export default function LoginPage() {
           />
         </label>
         {error && <p role="alert" className="text-red-600">{error}</p>}
-        <button disabled={submitting} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
+        <button type="submit" disabled={submitting} className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">
           {submitting ? "Memeriksa..." : "Login"}
         </button>
       </form>
@@ -963,15 +1199,29 @@ export default function LoginPage() {
 }
 ```
 
-**Bedah alur:** `login()` mengirim email/password ke endpoint publik; backend memeriksa bcrypt dan mengembalikan token. `saveToken()` menyimpan token **setelah** respons sukses. `router.replace('/tasks')` berpindah halaman tanpa menaruh halaman login sebagai langkah “kembali” setelah berhasil login. Pada App Router, `useRouter` diimpor dari `next/navigation`.
+**Alur submit:** `onSubmit` memanggil `handleSubmit`, lalu `event.preventDefault()` mencegah reload form. `setSubmitting(true)` menonaktifkan tombol selama request. `await login({ email, password })` menunggu respons backend; hanya pada jalur sukses `saveToken(result.accessToken)` dijalankan, kemudian `router.replace("/tasks")` melakukan navigasi tanpa menambahkan halaman login ke riwayat. Pada App Router, `useRouter` berasal dari `next/navigation`. Jika login gagal, `catch` menyimpan pesan error dalam React state. `finally` mengembalikan `submitting` menjadi `false`.
 
-**Checkpoint 8:** password salah menampilkan error dan tidak menyimpan token. Password benar menghasilkan item `workshop_access_token` pada Session Storage. Jangan menyalin token sungguhan ke chat, screenshot publik, atau repository.
+**Bedakan React state dan browser storage:** `password` serta `submitting` adalah React state milik komponen login. Nilainya hilang ketika komponen tidak lagi dirender. Access token yang disimpan di `sessionStorage` masih dapat dibaca setelah navigasi atau refresh pada tab yang sama.
 
-> **Batasan keamanan pilihan workshop:** JavaScript di halaman dapat membaca `sessionStorage`, sehingga XSS juga dapat membaca token. Penyimpanan ini dipilih untuk memperlihatkan `Authorization: Bearer ...` dengan jelas, **bukan pola sesi produksi yang direkomendasikan**. Untuk aplikasi nyata, evaluasi session/cookie `HttpOnly`, `Secure`, `SameSite` yang diatur server atau BFF, perlindungan CSRF untuk cookie, HTTPS, rate limit login, dan kebijakan rotasi/revokasi token. Menghapus token lokal saat logout tidak membatalkan JWT yang sudah terbit; token itu masih valid sampai kedaluwarsa kecuali ada mekanisme revokasi.
+**Checkpoint 8:** hapus item `workshop_access_token` lama dari Session Storage sebelum menguji password salah agar pengamatan tidak terpengaruh token dari login sebelumnya. Password salah menampilkan error dan tidak membuat item token baru. Password benar menghasilkan item `workshop_access_token` pada Session Storage. Hindari menyalin access token yang aktif ke chat, screenshot publik, atau repository.
 
-## 9. Frontend tahap ketiga: tempel token ke semua request task
+Pada titik ini login sudah berhasil, tetapi request `/tasks` belum menyertakan header `Authorization` sampai langkah 9. Karena itu, setelah `router.replace("/tasks")`, request Task masih dapat menghasilkan `401`. Respons tersebut berasal dari request Task tanpa token, bukan dari request login.
 
-**Tujuan kecil:** cukup satu tempat untuk memasang header `Authorization`; seluruh fungsi task tetap punya bentuk pemanggilan yang sama seperti Day 2.
+> **Catatan keamanan:** `sessionStorage` memudahkan pengamatan alur token pada latihan ini, tetapi JavaScript di halaman dapat membacanya. Untuk aplikasi produksi, pemilihan mekanisme penyimpanan token perlu mempertimbangkan ancaman XSS, CSRF, dan desain sesi. Bagian penutup membahas cookie `HttpOnly` serta batas logout tanpa revokasi token di server.
+
+## 9. Frontend tahap ketiga: kirim access token pada request protected
+
+**Tujuan langkah ini:** setiap request ke endpoint protected membawa header `Authorization: Bearer <accessToken>`. Buat satu fungsi `authFetch` untuk membaca token dan menambahkan header tersebut. Fungsi CRUD Task dari Day 2 tetap bernama `getTasks`, `createTask`, `updateTask`, dan `deleteTask`.
+
+```text
+TaskForm / TasksPage
+  → tasks.api.ts memilih GET/POST/PATCH/DELETE
+  → authFetch mengambil token dan memasang header
+  → JwtAuthGuard memverifikasi token
+  → TasksService memfilter userId
+```
+
+Urutan implementasinya: selesaikan `authFetch`, pakai untuk `/auth/me`, pindahkan fungsi API Task ke helper yang sama, lalu sesuaikan halaman Task.
 
 ### 9a. Helper request protected
 
@@ -1010,7 +1260,19 @@ export async function authFetch(
 }
 ```
 
-**Bedah baris:** `getToken()` membaca token pada saat request dibuat, bukan saat module pertama di-load. `new Headers(options.headers)` mempertahankan header pemanggil, misalnya `Content-Type`. `Authorization` berisi skema `Bearer` dan token. `401` membersihkan sesi tab lalu membuka login; status lain tetap diteruskan agar pemanggil dapat menampilkan error yang sesuai. Fungsi ini memang untuk **Client Component/browser** pada arsitektur latihan ini.
+**Bedah helper per kelompok baris:**
+
+| Kode | Penjelasan |
+| --- | --- |
+| `authFetch(path, options = {})` | `path` adalah `/tasks` atau `/auth/me`; `options` berisi method, body, dan header tambahan jika diperlukan. Nilai baliknya tetap `Response` seperti `fetch`. |
+| `const token = getToken()` | Token dibaca **setiap kali request dibuat**. Jika dibaca sekali saat file pertama di-import, login baru mungkin tidak terbaca. |
+| `if (!token) { ... }` | Browser diarahkan ke `/login` dan request protected tidak dikirim. Redirect ini mengatur navigasi; pembatasan akses tetap dilakukan guard backend. |
+| `new Headers(options.headers)` | Header dari pemanggil, misalnya `Content-Type: application/json`, tidak hilang. |
+| `headers.set('Authorization', ...)` | Menambahkan header dengan skema `Bearer` yang dibaca `JwtAuthGuard`. |
+| `fetch(\`${API_URL}${path}\`, { ...options, headers })` | Opsi GET/POST/PATCH/DELETE tetap dipakai; `headers` yang baru mengganti header lama setelah `...options`. |
+| `response.status === 401` | Token salah/kedaluwarsa → hapus token lokal dan arahkan ke login. Status lain tetap dikembalikan kepada pemanggil. |
+
+Helper dipakai dari event handler atau effect pada Client Component, sehingga `window.location.replace` tersedia. Saat backend mengembalikan `401`, helper menghapus token dan memulai navigasi ke login, lalu melempar error. Pemanggil masih dapat menangkap error sebelum navigasi selesai. Guard NestJS tetap melakukan verifikasi token pada setiap request ke endpoint protected.
 
 ### 9b. Ambil profil dari endpoint protected
 
@@ -1030,7 +1292,7 @@ export async function getMe(): Promise<PublicUser> {
 }
 ```
 
-**Kenapa memanggil `/auth/me`?** Login sudah memberi user publik, tetapi `/auth/me` membuktikan token tersimpan benar-benar dapat dipakai lagi setelah navigasi atau refresh. Nama/email yang ditampilkan nantinya berasal dari server, bukan hasil membaca payload JWT di browser.
+`/auth/me` memverifikasi kembali token yang dibaca dari `sessionStorage` setelah navigasi atau refresh. Endpoint ini mengembalikan `{ id, email }` untuk user pada token yang valid. Email di halaman Task nanti berasal dari respons endpoint ini; frontend tidak perlu membaca payload JWT.
 
 ### 9c. Ganti seluruh API task agar memakai helper
 
@@ -1075,11 +1337,32 @@ export async function deleteTask(id: number): Promise<void> {
 }
 ```
 
-**Bedah baris:** URL dan token sekarang dikumpulkan di `authFetch`; `tasks.api.ts` tetap menjelaskan aksi bisnis `GET/POST/PATCH/DELETE`. Input create/update hanya berisi field task; **tidak ada `userId`**. Type `Task` lama boleh tetap karena field yang dipakai UI belum berubah; respons backend boleh punya tambahan `userId`.
+**Bandingkan perubahan API Task dengan Day 2:**
+
+| Sebelumnya | Sekarang | Yang tidak berubah |
+| --- | --- | --- |
+| `fetch(\`${API_URL}/tasks\`)` | `authFetch('/tasks')` | `getTasks()` tetap mengembalikan array Task. |
+| POST/PATCH membuat `fetch` sendiri | POST/PATCH memanggil helper dengan `method`, `headers`, dan `body` yang sama | DTO backend masih menerima `title`, `description`, `completed`. |
+| Tidak ada header login | Helper menambah `Authorization` | `response.ok` dan `response.json()` tetap dipakai. |
+
+`tasks.api.ts` tetap menentukan endpoint, method, body, dan cara membaca respons untuk tiap operasi Task. `authFetch` menambahkan token dan menangani `401` secara konsisten. Input create/update hanya memuat field Task; backend mengambil `userId` dari `request.user.id` setelah guard memverifikasi JWT. Tipe `Task` Day 2 tetap cukup untuk field yang dipakai UI, walaupun respons backend kini mempunyai `userId` tambahan.
+
+**Checkpoint sementara:** setelah mengganti file API, refresh `/tasks` dan periksa header `Authorization` pada GET `/tasks` di Network tab. Jika respons masih `401`, periksa token pada `sessionStorage`, format `Bearer`, serta `JWT_SECRET` yang dipakai backend untuk menandatangani dan memverifikasi JWT. Jika halaman masih memakai `handleToggle` dari checkout lama, tunggu perbaikan di langkah 9d sebelum menguji PATCH.
 
 ### 9d. Rapikan halaman Tasks dan satu request toggle
 
-Di kode saat ini, `handleToggle` dalam `frontend/src/app/tasks/page.tsx` melakukan `fetch` PATCH langsung ke `http://localhost:3001` **lalu** memanggil `updateTask()`, sehingga satu klik mengirim dua PATCH. Setelah endpoint diproteksi, request langsung itu tidak membawa token dan akan `401`. Ganti isi halaman menjadi berikut; struktur `TasksPage -> TaskView -> TaskForm/TaskItem` tetap dipakai:
+Di checkout saat ini, `handleToggle` dalam `frontend/src/app/tasks/page.tsx` melakukan PATCH melalui `fetch` langsung ke `http://localhost:3001`, lalu memanggil `updateTask()`. Akibatnya satu klik mengirim dua PATCH. Acuan akhir Day 2 sudah memperbaiki ini. Setelah endpoint protected, request langsung pada checkout lama juga tidak membawa token dan menghasilkan `401`.
+
+Checkout saat ini juga menambahkan jeda dua detik sebelum GET Task untuk menampilkan spinner. Acuan akhir di bawah menghapus jeda demo tersebut. Jeda ini berasal dari kode halaman, bukan dari verifikasi JWT.
+
+**Urutan perubahan dari halaman Day 2:**
+
+1. **Perbaiki toggle lebih dulu.** Pada `handleToggle`, hapus `fetch('http://localhost:3001/...')` langsung. Sisakan satu pemanggilan `updateTask()` dan pembaruan React state melalui `setTasks(...map...)`. Jika peserta memakai acuan akhir Day 2, perubahan ini sudah ada. Setelah login, klik satu Task dan pastikan Network tab menampilkan satu PATCH.
+2. **Tambahkan profil.** Import `getMe` dan tipe `PublicUser`; buat `const [user, setUser] = useState<PublicUser | null>(null)`. Pada `useEffect`, panggil `getMe()` sebelum `getTasks()`, lalu simpan respons melalui `setUser` dan `setTasks`. Tampilkan `{user.email}` di atas `TaskView`. Nilai email berasal dari endpoint backend, bukan dari payload JWT yang dibaca frontend.
+3. **Sesuaikan penanganan CRUD.** Handler create/toggle/delete masih memperbarui array Task seperti Day 2. Gunakan `try/catch` untuk PATCH dan DELETE, lalu tampilkan `actionError` jika request gagal. Variabel `active` dan cleanup pada effect mencegah respons lama mengubah React state setelah komponen tidak lagi aktif.
+4. **Tambahkan logout.** `clearToken()` menghapus access token dari `sessionStorage`; kosongkan `user` dan `tasks`; lalu `router.replace('/login')` mengarahkan browser. Jika `/tasks` dibuka lagi tanpa token, `authFetch` mengarahkan ke login dan guard backend menolak request tanpa token yang dikirim langsung ke API.
+
+Setelah perubahan bertahap tersebut, cocokkan halaman dengan acuan akhir berikut. Struktur `TasksPage -> TaskView -> TaskForm/TaskItem` tetap dipakai:
 
 ```tsx
 "use client";
@@ -1189,22 +1472,30 @@ export default function TasksPage() {
 }
 ```
 
-**Bedah alur halaman:**
+**Bedah baris penting setelah peserta melihat file lengkap:**
 
-1. `useState` menyimpan user, task, loading, dan error. State adalah memori komponen; perubahan state memicu tampilan baru.
-2. `useEffect` memanggil `/auth/me`, lalu `/tasks` setelah halaman muncul di browser. `active` mencegah respons request lama mengubah state setelah halaman ditinggalkan.
-3. `handleToggle` sekarang hanya memanggil `updateTask` **sekali**; fungsi API itu otomatis menempelkan token. Error mutasi ditangkap ke `actionError` supaya tidak menjadi promise rejection tanpa pesan UI.
-4. `handleCreateTask` menambahkan task hasil API ke state parent, sama seperti pola Day 2.
-5. `handleLogout` menghapus token dan data dari state, lalu menuju login. Logout ini bersifat lokal; tidak mencabut JWT yang sudah beredar.
-6. `TaskView`, `TaskForm`, dan `TaskItem` tetap memakai props/callback yang sama. `TaskForm` memanggil `createTask()` dari API client yang kini authenticated.
+| Baris / kelompok | Mengapa ditulis? |
+| --- | --- |
+| `"use client"` | Halaman memakai `useState`, `useEffect`, tombol, dan storage browser. Komponen anak yang di-import dari halaman ini ikut berada di sisi client. |
+| `useState<PublicUser \| null>(null)` | Sebelum `/auth/me` berhasil, kita belum tahu user yang aktif. Setelah sukses, email bisa ditampilkan. |
+| `useState<Task[]>([])` | Daftar task tetap dimiliki `TasksPage`, sama seperti Day 2. `TaskView` hanya menerima props. |
+| `getMe()` lalu `getTasks()` | Request profil memastikan token dapat diverifikasi; request berikutnya mengambil Task yang difilter backend berdasarkan user yang sama. |
+| `let active = true` dan cleanup `active = false` | Respons dari request lama tidak mengubah state jika halaman sudah ditinggalkan. Ini **tidak** membatalkan request jaringan. |
+| `handleCreateTask(newTask)` | Task hasil POST ditambahkan ke state parent. Kita memakai object hasil server, bukan membuat ID sendiri. |
+| `updateTask(task.id, { completed: !task.completed })` | Satu klik → satu PATCH. Respons mengganti item yang cocok melalui `map`. |
+| `deleteTask` lalu `filter` | Setelah server sukses menghapus, item dikeluarkan dari state. |
+| `actionError` | Gagal PATCH/DELETE tampil sebagai pesan; data yang sudah ada tetap terlihat. |
+| `clearToken()` dan `router.replace('/login')` | Logout menghapus token dari browser dan mengarahkan UI ke login. JWT yang sudah diterbitkan tetap valid sampai kedaluwarsa jika server tidak mempunyai mekanisme revokasi. |
+
+**Alur data saat user mengubah Task:** `TasksPage` mengirim array `tasks` ke `TaskView`, lalu ke `TaskItem`. Event klik memanggil callback milik `TasksPage`, yang memanggil API helper. Setelah guard dan service backend memproses request, respons digunakan oleh `setTasks` untuk memperbarui React state; React merender ulang item yang berubah.
 
 ### 9e. Tampilkan error saat membuat task
 
-`TaskForm` Day 2 langsung memanggil `createTask()` tanpa `try/catch`. Jika token kedaluwarsa atau API gagal, promise dapat ditolak tanpa pesan yang mudah dipahami. Ganti isi `frontend/src/features/tasks/components/task-form.tsx` dengan versi kecil berikut:
+Ada dua kemungkinan titik awal. Pada checkout saat ini, `TaskForm` Day 2 belum menangani error dengan `try/catch`. Pada contoh akhir panduan Day 2, form sudah memiliki `trim`, batas panjang input, status submit, dan pesan error. Jika peserta memakai hasil akhir Day 2, form tersebut dapat dipertahankan karena `createTask()` sudah memakai `authFetch` setelah langkah 9c. Jika memakai checkout saat ini, ganti isi `frontend/src/features/tasks/components/task-form.tsx` dengan acuan berikut:
 
 ```tsx
 import { useState } from "react";
-import { Task } from "../types/task";
+import type { Task } from "../types/task";
 import { createTask } from "../api/tasks.api";
 
 type TaskFormProps = {
@@ -1219,11 +1510,16 @@ export function TaskForm({ onCreated }: TaskFormProps) {
 
   async function handleSubmit(event: React.SubmitEvent<HTMLFormElement>) {
     event.preventDefault();
+    const cleanTitle = title.trim();
+    if (!cleanTitle || submitting) return;
     setError("");
     setSubmitting(true);
 
     try {
-      const newTask = await createTask({ title, description });
+      const newTask = await createTask({
+        title: cleanTitle,
+        description: description.trim(),
+      });
       await onCreated(newTask);
       setTitle("");
       setDescription("");
@@ -1240,12 +1536,15 @@ export function TaskForm({ onCreated }: TaskFormProps) {
         value={title}
         placeholder="Task title"
         onChange={(event) => setTitle(event.target.value)}
+        required
+        maxLength={120}
         className="w-full rounded border p-2"
       />
       <textarea
         value={description}
         onChange={(event) => setDescription(event.target.value)}
         placeholder="Task description"
+        maxLength={500}
         className="w-full rounded border p-2"
       />
       {error && <p role="alert" className="text-red-600">{error}</p>}
@@ -1261,100 +1560,99 @@ export function TaskForm({ onCreated }: TaskFormProps) {
 }
 ```
 
-**Bedah baris:** `try` menunggu server membuat task, lalu memberi hasilnya ke callback parent. Input baru dikosongkan setelah keduanya berhasil. `catch` menampilkan error; `finally` melepas tombol agar bisa dicoba lagi. Jika errornya `401`, `authFetch` juga menghapus token dan mengarahkan pengguna ke login. Props dan struktur komponen Day 2 tetap sama.
+**Penjelasan form:** `title.trim()` menghapus spasi di awal dan akhir judul. Kondisi `!cleanTitle || submitting` mencegah request dengan judul kosong atau submit berulang. Atribut `required` dan `maxLength` memberi validasi awal di browser; DTO backend tetap memvalidasi request. `await createTask(...)` menunggu respons POST, lalu `await onCreated(newTask)` mengirim Task hasil server ke state parent. Input dikosongkan setelah kedua operasi berhasil. `catch` menyimpan pesan error untuk dirender, sedangkan `finally` mengembalikan `submitting` menjadi `false`. Jika backend mengembalikan `401`, `authFetch` juga menghapus token dan mengarahkan ke login. Struktur props Day 2 tetap dipakai.
 
-**Checkpoint 9:** login Alice, buat/toggle/hapus task sambil buka tab Network. Setiap request ke `/auth/me` dan `/tasks` membawa header `Authorization: Bearer ...`; satu klik toggle menghasilkan **satu** PATCH. Pada mode development React Strict Mode, `useEffect` dapat membuat dua GET awal; flag `active` mencegah update state usang, tetapi tidak membatalkan request. Bedakan hal itu dari bug dua PATCH saat toggle. Logout, buka `/tasks` lagi, lalu lihat redirect ke `/login`. Redirect client membantu pengalaman pengguna; pengamanan data sebenarnya tetap berada di guard dan filter backend.
+**Checkpoint 9:** login sebagai `user1@example.com`, lalu buat, ubah status, dan hapus Task sambil memeriksa Network tab. Request ke `/auth/me` dan `/tasks` membawa header `Authorization: Bearer ...`; satu klik toggle menghasilkan satu PATCH. Pada development dengan React Strict Mode, `useEffect` dapat memicu dua GET awal. Flag `active` mencegah respons lama mengubah state, tetapi tidak membatalkan request jaringan. Dua GET tersebut berbeda dari dua PATCH pada satu klik yang berasal dari implementasi `handleToggle` lama. Setelah logout, akses ulang `/tasks` dan periksa redirect ke `/login`. Guard dan filter backend tetap menjadi mekanisme yang membatasi akses data.
 
 ## 10. Uji dua akun dan jelaskan status HTTP
 
-Lakukan pengujian API sebelum demo UI. Alice sudah didaftarkan di langkah 3; daftarkan Bob dengan email berbeda. Login keduanya dan salin token dari respons ke variabel shell **di terminal latihan pribadi**, bukan ke file repository:
+Mulai dari API sebelum mencoba alur yang sama di dashboard. Gunakan dua akun yang dibuat pada langkah backend: `user1@example.com` dan `user2@example.com`. Jika database latihan sempat di-reset, register ulang kedua akun, lalu login untuk mendapatkan access token masing-masing. Simpan token hanya di variabel shell pada terminal latihan:
 
 ```bash
-curl -i http://localhost:3001/auth/register \
+curl -i http://localhost:3001/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"bob@example.com","password":"passwordBob123"}'
+  -d '{"email":"user1@example.com","password":"passwordUser1_123"}'
 
 curl -i http://localhost:3001/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"email":"alice@example.com","password":"contohPassword123"}'
-
-curl -i http://localhost:3001/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"bob@example.com","password":"passwordBob123"}'
+  -d '{"email":"user2@example.com","password":"passwordUser2_123"}'
 ```
 
-Jika Bob sudah dibuat pada tahap frontend, request register Bob akan `409`; langsung gunakan login.
+Pada `curl`, opsi `-d` mengirim request body dan menggunakan method POST ketika method tidak ditentukan secara eksplisit. Header `Content-Type: application/json` menyatakan bahwa body berisi JSON. Respons login berisi `accessToken`; setiap akun harus menghasilkan token yang berbeda.
 
-Simpan token yang diterima:
+Salin masing-masing nilai `accessToken` dari respons ke variabel berikut. Nilai di bawah adalah placeholder, bukan token yang bisa langsung dipakai:
 
 ```bash
-TOKEN_A='tempel-token-Alice'
-TOKEN_B='tempel-token-Bob'
+TOKEN_USER_1='access-token-dari-login-user1'
+TOKEN_USER_2='access-token-dari-login-user2'
 ```
 
-Alice membuat task. Catat `id` dari respons, lalu isi `TASK_ID`:
+Gunakan token user 1 untuk membuat task. Respons `POST /tasks` seharusnya `201` dan mengembalikan `id` task serta `userId` yang ditetapkan backend. Catat `id` tersebut untuk request berikutnya:
 
 ```bash
 curl -i http://localhost:3001/tasks \
-  -H "Authorization: Bearer $TOKEN_A" \
+  -H "Authorization: Bearer $TOKEN_USER_1" \
   -H 'Content-Type: application/json' \
-  -d '{"title":"Task Alice","description":"Hanya Alice yang boleh mengubah"}'
+  -d '{"title":"Task user 1","description":"Dibuat oleh user 1"}'
 
-TASK_ID='isi-id-task-Alice'
+TASK_ID='id-task-dari-respons'
 ```
 
-Periksa batas kepemilikan:
+Ganti `TASK_ID` dengan angka `id` yang benar-benar dikembalikan server. Lalu jalankan request berikut satu per satu. Perhatikan status HTTP dan body respons setiap request:
 
 ```bash
 curl -i http://localhost:3001/tasks
 
-curl -i http://localhost:3001/tasks -H "Authorization: Bearer $TOKEN_A"
-curl -i http://localhost:3001/tasks -H "Authorization: Bearer $TOKEN_B"
+curl -i http://localhost:3001/tasks -H "Authorization: Bearer $TOKEN_USER_1"
+curl -i http://localhost:3001/tasks -H "Authorization: Bearer $TOKEN_USER_2"
 
 curl -i "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_B"
+  -H "Authorization: Bearer $TOKEN_USER_2"
 
 curl -i -X PATCH "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_B" \
+  -H "Authorization: Bearer $TOKEN_USER_2" \
   -H 'Content-Type: application/json' \
   -d '{"completed":true}'
 
 curl -i -X DELETE "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_B"
+  -H "Authorization: Bearer $TOKEN_USER_2"
 
 curl -i "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_A"
+  -H "Authorization: Bearer $TOKEN_USER_1"
 
 curl -i -X PATCH "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_A" \
+  -H "Authorization: Bearer $TOKEN_USER_1" \
   -H 'Content-Type: application/json' \
   -d '{"completed":true}'
 
 curl -i http://localhost:3001/tasks \
-  -H "Authorization: Bearer $TOKEN_A" \
+  -H "Authorization: Bearer $TOKEN_USER_1" \
   -H 'Content-Type: application/json' \
   -d '{"title":"Mencoba userId palsu","userId":999}'
 
 curl -i -X DELETE "http://localhost:3001/tasks/$TASK_ID" \
-  -H "Authorization: Bearer $TOKEN_A"
+  -H "Authorization: Bearer $TOKEN_USER_1"
 ```
 
-Urutan ini sengaja menguji DELETE Alice **terakhir** agar task masih ada saat semua tes GET/PATCH dijalankan. Untuk menguji ulang DELETE, buat task baru dan gunakan ID barunya.
+Request DELETE dengan token user 1 ada di bagian akhir agar task masih tersedia selama pengujian GET dan PATCH. Jika ingin mengulang pengujian setelah DELETE berhasil, buat task baru dan gunakan `id` yang baru.
 
-| Skenario | Hasil yang diharapkan | Penjelasan untuk peserta |
+| Request atau kondisi | Hasil yang diharapkan | Baris logika yang menentukan hasil |
 | --- | --- | --- |
-| Register email baru | `201` | User dibuat; hash tidak keluar. |
-| Register email sama | `409` | Constraint unik email bekerja. |
-| Login password salah | `401` | Bukti identitas gagal. |
-| `/auth/me` atau `/tasks` tanpa token | `401` | Guard menolak sebelum controller. |
-| JWT rusak/kedaluwarsa | `401` | Tanda tangan/masa berlaku gagal diverifikasi. |
-| Alice melihat daftar | Task Alice muncul | Query memakai `where: { userId: Alice }`. |
-| Bob melihat daftar | Task Alice tidak muncul | Query memakai `where: { userId: Bob }`. |
-| Bob GET/PATCH/DELETE ID task Alice | `404` | Task itu tidak cocok dengan pasangan `id + userId`. |
-| Alice GET/PATCH/DELETE task sendiri | `200` | Identitas dan kepemilikan cocok. |
-| Body task menyertakan `userId` orang lain | `400` | `ValidationPipe` menolak field DTO yang tidak dikenal. |
+| Register dengan email baru | `201` | `AuthService.register` menyimpan `passwordHash` dan hanya mengembalikan `id` serta `email`. |
+| Register dengan email yang sudah ada | `409` | Email unik di database; `P2002` diterjemahkan menjadi `ConflictException`. |
+| Login dengan password salah | `401` | `bcrypt.compare` bernilai `false`; access token tidak diterbitkan. |
+| `/auth/me` atau `/tasks` tanpa token | `401` | `JwtAuthGuard` menolak request sebelum handler controller dijalankan. |
+| JWT dengan signature tidak valid atau sudah kedaluwarsa | `401` | `JwtService.verifyAsync` gagal memverifikasi token. |
+| `POST /tasks` oleh user 1 | `201` | Service mengisi `userId` dari `request.user.id`. |
+| `GET /tasks` oleh user 1 | `200`, termasuk task yang baru dibuat | Query memakai `where: { userId: 1 }` **jika** ID user 1 adalah `1`. |
+| `GET /tasks` oleh user 2 | `200`, tanpa task user 1 | Query memakai `where: { userId: 2 }` **jika** ID user 2 adalah `2`. |
+| GET/PATCH/DELETE task user 1 dengan token user 2 | `404` | Query mencocokkan `id` task sekaligus `userId` dari token user 2. |
+| GET/PATCH/DELETE task sendiri | `200` | Kedua syarat query cocok. |
+| `POST /tasks` dengan field `userId` tambahan | `400` | `ValidationPipe` menolak field yang tidak ada di DTO. |
 
-**Demo frontend dua akun:** login Alice dan buat task; logout; login Bob dan pastikan daftar kosong; logout; login Alice dan pastikan task Alice masih ada. Untuk demo paralel, gunakan profil browser atau jendela privat terpisah agar sesi kedua akun benar-benar terpisah.
+Angka `1` dan `2` pada contoh query hanya ilustrasi. Nilai sebenarnya mengikuti `id` akun di respons register atau `/auth/me`; service menggunakan nilai dari `request.user`, bukan angka yang ditulis di frontend.
+
+**Uji di frontend:** login sebagai user 1 dan buat satu task. Logout, lalu login sebagai user 2; task user 1 tidak muncul. Login kembali sebagai user 1; task tersebut muncul lagi. Jika ingin membandingkan dua akun secara bersamaan, buka keduanya di profil browser terpisah karena `sessionStorage` berlaku per tab atau window pada origin yang sama. Hubungkan hasilnya ke dua bagian backend: guard menentukan apakah request boleh masuk, sedangkan filter `userId` menentukan task mana yang bisa diakses.
 
 Terakhir, periksa kode setelah semua potongan dipasang. Jalankan dari direktori masing-masing:
 
@@ -1375,15 +1673,17 @@ Build/type-check menemukan masalah import atau tipe; tabel uji API di atas tetap
 | Backend gagal start: `JWT_SECRET` tidak ada | Tambahkan di `backend/.env`, lalu restart proses Nest. |
 | Migrasi gagal karena `userId` wajib | Ada task lama tanpa pemilik; gunakan database latihan kosong atau migrasi nullable → backfill → wajib. |
 | Prisma tidak mengenali model `User`/field `userId` | Jalankan `pnpm exec prisma generate` dari `backend/`, lalu restart Nest. |
-| `Nest can't resolve dependencies` untuk guard/service | Pastikan `AuthModule` mengimpor `PrismaModule`, menyediakan dan mengekspor guard; `TasksModule` mengimpor `AuthModule`. |
+| `Nest can't resolve dependencies` untuk guard/service | Pastikan `AuthModule` mengimpor `PrismaModule` dan `JwtModule`, lalu mengekspor **`JwtAuthGuard` serta `JwtModule`**. `TasksModule` harus mengimpor `AuthModule` dan `PrismaModule`. |
 | Browser menerima CORS error | Pastikan alamat frontend sesuai `FRONTEND_URL` backend (default `http://localhost:3000`) dan Nest direstart. |
 | Semua request task `401` | Lihat header Authorization di Network, secret backend, masa berlaku JWT, dan apakah token tersimpan di tab itu. |
 | Toggle mengirim dua PATCH | Hapus `fetch` langsung lama dari `tasks/page.tsx`; cukup `updateTask()`. |
-| Menjalankan seed lama gagal | Seed Day 2 belum mengisi `userId`; gunakan pilihan seed baru di bawah. |
+| Build gagal pada `prisma/seed.ts` setelah `userId` wajib | Seed Day 2 masih membuat task tanpa pemilik. Kerjakan langkah 6d untuk stub aman, atau ganti dengan seed baru pada Lampiran A. |
 
-## 11. Pilihan seed untuk Day 3
+## Lampiran A — Seed opsional setelah auth selesai
 
-Jika perlu data contoh otomatis, ubah `backend/prisma/seed.ts` agar membuat task **untuk satu user demo**. Seed lama tidak lagi cocok karena task wajib memiliki pemilik. Jangan memakai password demo tetap di source code. Tambahkan `SEED_USER_EMAIL` dan `SEED_USER_PASSWORD` ke `backend/.env` **khusus database lokal latihan**, kemudian gunakan pola berikut:
+Kerjakan bagian ini setelah register, login, guard, dan pembatasan kepemilikan task selesai diuji. Seed Day 2 membuat task tanpa `userId`; setelah relasi Task–User diwajibkan, setiap task dari seed juga harus memiliki pemilik. Contoh berikut membuat satu user untuk database latihan dan menambahkan dua task milik user tersebut.
+
+Tambahkan `SEED_USER_EMAIL` dan `SEED_USER_PASSWORD` ke `backend/.env` lokal. Isi password melalui environment variable agar kredensial demo tidak disimpan di source code. Lalu ganti isi `backend/prisma/seed.ts` dengan:
 
 ```ts
 import 'dotenv/config';
@@ -1445,19 +1745,48 @@ Jalankan eksplisit dari `backend/`:
 pnpm exec prisma db seed
 ```
 
-**Bedah pilihan seed:** `upsert` membuat user demo hanya jika belum ada; `count` mencegah task contoh berlipat saat seed diulang; setiap task mempunyai `userId`. Pemeriksaan byte menjaga perilaku bcrypt sama dengan register. `update: {}` sengaja tidak mengganti password akun lama saat seed diulang, sehingga `SEED_USER_PASSWORD` hanya berlaku ketika akun seed **baru dibuat**. Seed ini hanya untuk database latihan. Jika peserta sudah membuat Alice/Bob manual, seed tidak diperlukan.
+Perhatikan bagian yang perlu dijelaskan setelah peserta membaca kodenya:
 
-## Penutup yang bisa diucapkan fasilitator
+| Kode | Alasan |
+| --- | --- |
+| `requiredEnv(...)` | Seed berhenti dengan pesan yang jelas jika variabel yang wajib diisi belum tersedia. |
+| `trim().toLowerCase()` | Format email seed mengikuti normalisasi email pada register. |
+| Pemeriksaan panjang karakter dan `Buffer.byteLength(...)` | Password seed mengikuti batas yang sama dengan DTO register dan bcrypt: maksimal 72 byte UTF-8. |
+| `bcrypt.hash(password, 10)` | Kolom `passwordHash` menerima hash, sehingga akun seed dapat login melalui alur autentikasi yang sama. |
+| `prisma.user.upsert(...)` | `where: { email }` mencari user berdasarkan email unik. `create` dijalankan bila belum ada; `update: {}` tidak mengganti password user yang sudah ada. Karena itu, `SEED_USER_PASSWORD` hanya menjadi password akun ketika akun tersebut baru dibuat. |
+| `select: { id: true }` | Seed hanya memerlukan ID user untuk mengisi relasi task. |
+| `prisma.task.count({ where: { userId: user.id } })` | Seed menambahkan task contoh hanya ketika user itu belum memiliki task. Menjalankan seed ulang tidak menggandakan data contoh. |
+| `userId: user.id` pada `createMany` | Setiap task seed terhubung ke user yang dibuat atau ditemukan melalui `upsert`. |
+| `$disconnect()` pada `finally` | Koneksi Prisma ditutup baik seed berhasil maupun gagal. |
 
-“Register menyimpan **hash**, bukan password. Login membandingkan password dengan hash lalu menerbitkan token yang ditandatangani. Guard memverifikasi token dan menaruh ID user di request. Service mengambil ID itu untuk setiap query Task. Jadi bahkan kalau Bob menebak ID task Alice atau mengirim `userId` palsu, server tetap tidak memberinya akses. Frontend menyimpan token dan mengirimnya pada setiap request, tetapi keputusan aman tetap dibuat backend.”
+Seed ini untuk database latihan. Jika dua akun dan task sudah dibuat manual selama workshop, bagian ini tidak diperlukan.
 
-**Latihan mandiri:** minta peserta membuat dua akun dan membuktikan empat hal tanpa melihat kode: daftar terpisah, akses ID milik orang lain `404`, request tanpa token `401`, dan satu klik toggle hanya satu PATCH. Setelah itu, minta mereka menunjukkan tepat baris kode yang menyebabkan setiap hasil.
+## Penutup sesi
+
+Simpulkan alurnya secara berurutan. Register memvalidasi input, membuat `passwordHash`, lalu menyimpan user. Login memakai `bcrypt.compare` untuk memeriksa password dan menerbitkan JWT dengan ID user di klaim `sub`. Pada request protected, `JwtAuthGuard` memverifikasi JWT dan menaruh identitas user di `request.user`. `TasksService` menggunakan `request.user.id` saat membuat task dan saat membatasi query task. Frontend menyimpan access token dan mengirimnya melalui header `Authorization`; keputusan akses tetap dilakukan di backend.
+
+Sebagai latihan mandiri, peserta membuat dua akun dan membuktikan empat hasil melalui Network tab atau `curl`: daftar task terpisah per user, akses ke ID task user lain menghasilkan `404`, request tanpa token menghasilkan `401`, dan satu aksi toggle menghasilkan satu PATCH. Minta peserta mengaitkan masing-masing respons dengan guard, validasi DTO, atau filter `userId` di service.
+
+## Catatan lanjutan untuk tentor setelah demo inti
+
+Implementasi workshop memusatkan pembelajaran pada alur HTTP, JWT, dan pembatasan data berdasarkan pemilik. Jika pembahasan berlanjut ke aplikasi produksi, gunakan poin berikut untuk menunjukkan keputusan tambahan yang perlu dibuat:
+
+| Yang dipakai di workshop | Yang perlu dipikirkan untuk aplikasi nyata |
+| --- | --- |
+| Token di `sessionStorage` | JavaScript di halaman dapat membacanya, sehingga XSS juga dapat mencurinya. Evaluasi cookie sesi `HttpOnly`, `Secure`, `SameSite` yang dibuat server atau pola BFF; cookie juga butuh perlindungan CSRF yang sesuai. |
+| JWT berlaku satu jam dan logout hanya menghapus token lokal | Token yang sudah terbit masih valid sampai kedaluwarsa, kecuali server punya revokasi/rotasi sesi. |
+| Register dan login sederhana | Tambahkan HTTPS, rate limit login, dan kebijakan recovery akun. |
+| `User.email` unik + normalisasi lowercase | Tetapkan kebijakan perubahan email, verifikasi email, dan penanganan akun duplikat sesuai kebutuhan produk. |
+
+Bahas poin ini setelah peserta berhasil menunjukkan hasil pengujian dua akun. Dengan begitu, perbedaan antara implementasi latihan dan kebutuhan aplikasi produksi dapat dihubungkan ke kode yang baru mereka jalankan.
 
 ## Rujukan konsep resmi
 
 - [NestJS: hashing dengan bcrypt](https://docs.nestjs.com/v11/security/encryption-and-hashing)
 - [NestJS 11: JWT bearer dan guard](https://docs.nestjs.com/v11/security/authentication)
+- [NestJS: batas module dan provider](https://docs.nestjs.com/modules)
 - [NestJS: validasi request](https://docs.nestjs.com/techniques/validation)
+- [bcrypt: batas 72 byte](https://github.com/kelektiv/node.bcrypt.js/#security-issues-and-concerns)
 - [Prisma: relasi satu ke banyak](https://docs.prisma.io/docs/orm/prisma-schema/data-model/relations/one-to-many-relations)
 - [Prisma 7: generate setelah migrate dev](https://docs.prisma.io/docs/guides/upgrade-prisma-orm/v7)
 - [Next.js App Router: Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
