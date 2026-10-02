@@ -1,10 +1,10 @@
 # Day 1 Workshop — NestJS CRUD Task + PostgreSQL
 
-> **Untuk fasilitator:** materi ini adalah rekonstruksi **bertahap** menuju backend yang sudah ada di repository saat ini. Pada checkout `main`, `TasksModule`, DTO, Prisma Service, migrasi awal, dan CRUD **sudah tersedia**. Potongan “sementara” di bawah digunakan untuk mengajar dari titik sederhana; **ganti** potongan lama pada tahap berikutnya, jangan menambah route atau method kembar. Materi ini hanya membahas backend. [Day 3](./day-3-auth-nextjs-nestjs.md) melanjutkannya dengan register, login, JWT, dan task milik pengguna.
+> Dokumen ini adalah acuan mengajar berdasarkan backend repository saat ini. `TasksModule`, DTO, `PrismaService`, migrasi awal, dan lima endpoint CRUD sudah tersedia pada checkout utama. Untuk live coding, kita menyusun ulang implementasinya dari route paling sederhana sampai ke query PostgreSQL. Setiap potongan sementara **menggantikan** versi sebelumnya pada tahap berikutnya; jangan menambahkan method dengan nama dan route yang sama dua kali. Day 1 berfokus pada backend. [Day 3](./day-3-auth-nextjs-nestjs.md) menambahkan authentication dan pembatasan task berdasarkan user.
 
-## Target akhir dan peta belajar
+## Hasil akhir dan urutan implementasi
 
-Di akhir Day 1, peserta dapat membuat dan menjelaskan lima operasi berikut:
+Setelah Day 1, peserta diharapkan bisa menjelaskan alur request dan membangun lima endpoint berikut:
 
 | Operasi | Request | Respons normal | Letak kode |
 | --- | --- | --- | --- |
@@ -14,7 +14,7 @@ Di akhir Day 1, peserta dapat membuat dan menjelaskan lima operasi berikut:
 | Ubah task | `PATCH /tasks/:id` | `200` + task yang berubah | Update DTO → Prisma `update` |
 | Hapus task | `DELETE /tasks/:id` | `200` + task yang dihapus | Cek task → Prisma `delete` |
 
-Urutan mengajarnya sengaja kecil-kecil:
+Urutan live coding:
 
 ```text
 HTTP dan route
@@ -27,25 +27,18 @@ HTTP dan route
   → GET by ID → PATCH → DELETE → seed dan uji akhir
 ```
 
-**Kalimat pembuka:** “Hari ini kita membuat API untuk task. Browser atau `curl` mengirim HTTP request, controller menerima alamat dan inputnya, service mengerjakan aturan aplikasi, Prisma menerjemahkan operasi ke database, lalu hasilnya kembali sebagai HTTP response.”
-
 ```text
-client/curl ──HTTP──> TasksController ──panggil──> TasksService
-                                                  │
-                                                  ▼
-                                            PrismaService
-                                                  │
-                                                  ▼
-                                              PostgreSQL
+Client ──HTTP request──> TasksController ──> TasksService ──> PrismaService ──> PostgreSQL
+Client <─HTTP response── TasksController <── TasksService <── PrismaService <── PostgreSQL
 ```
 
-**Analogi yang bisa dipakai:** controller seperti meja penerima pesanan, service seperti orang yang mengerjakan pesanan, DTO seperti formulir input yang disyaratkan, pipe seperti pemeriksa formulir, dan database seperti tempat penyimpanan. Setelah peserta paham alurnya, kembali ke nama teknis pada kode.
+`TasksController` menentukan method dan path HTTP serta mengambil input request. DTO mendefinisikan aturan untuk body, lalu `ValidationPipe` menjalankannya saat request masuk. `TasksService` menjalankan operasi aplikasi dan memanggil Prisma Client melalui `PrismaService`. Hasil query atau exception dari service menentukan respons yang dikirim Nest. Pada tahap awal, service belum memakai Prisma; kita mengganti sumber datanya setelah peserta memahami controller, service, dan validasi.
 
 ## 0. Persiapan kelas dan cara memakai checkout
 
 ### 0a. Pilih titik awal live coding
 
-Repository saat ini sudah berada pada hasil akhir Day 1. Untuk mengajar dengan layar kode yang benar-benar tumbuh sedikit demi sedikit, fasilitator dapat membuat **worktree terpisah** dari commit awal yang memang ada di riwayat repo. Opsi ini memerlukan clone Git yang mempunyai riwayat commit tersebut; unduhan ZIP atau shallow clone yang tidak memuat `945c575` tidak cukup.
+Checkout utama sudah memuat implementasi Day 1. Untuk live coding dari awal tanpa mengubah implementasi acuan, siapkan **worktree terpisah** dari commit `945c575`. Perintah ini memerlukan clone Git yang memiliki commit tersebut. Jika materi dibagikan sebagai ZIP atau shallow clone tanpa commit itu, gunakan potongan tahap demi tahap sebagai demonstrasi dan bandingkan dengan checkout utama.
 
 ```bash
 # Jalankan dari root repository, sekali saja untuk persiapan fasilitator.
@@ -54,11 +47,11 @@ cd ../task-management-day1-starter/backend
 pnpm install
 ```
 
-Commit `945c575` sudah berisi kerangka Nest, model `Task`, dan migrasi SQL awal, tetapi belum memiliki `TasksModule` atau `PrismaService`. Jadi peserta dapat menulis modul/task dari tahap 1 tanpa menghapus kode akhir di checkout utama. Jika worktree ini tidak dipakai, jadikan potongan tahap demi tahap sebagai **demonstrasi konsep** dan bandingkan hasil akhir dengan file di `backend/`; jangan tempel route sementara di atas route final yang sudah ada.
+Commit `945c575` berisi kerangka Nest, model `Task`, dan migrasi SQL awal, tetapi belum memiliki `TasksModule` atau `PrismaService`. Peserta dapat menambahkan file sesuai urutan materi. Pada checkout utama, file-file itu sudah ada; gunakan untuk melihat hasil akhir tiap tahap.
 
-Worktree awal ini khusus untuk latihan Day 1: commit tersebut **belum mempunyai frontend** dan file Markdown ini tetap berada di checkout `main`. Kode yang ditulis di worktree juga tidak otomatis pindah ke `main`. Untuk Day 2/3, gunakan checkout utama yang sudah memuat frontend dan CRUD final, atau siapkan branch kelas tersendiri bila hasil coding peserta akan diteruskan sebagai proyek mereka.
+Commit awal **belum mempunyai frontend**, dan perubahan di worktree tidak otomatis berpindah ke checkout utama. Untuk melanjutkan hasil coding peserta ke Day 2/3, pindahkan pekerjaan itu ke branch yang akan dipakai sepanjang workshop. Jika tidak, gunakan checkout utama yang sudah memuat frontend dan CRUD final.
 
-Semua perintah `pnpm` dan `prisma` di materi ini dijalankan dari direktori **`backend/`**. Root repository tidak mempunyai `package.json` gabungan. Dependency NestJS, Prisma 7, `class-validator`, `class-transformer`, dan adapter PostgreSQL sudah tercantum di `backend/package.json`; peserta tidak perlu memasang paket auth Day 3 pada tahap ini.
+Semua perintah `pnpm` dan `prisma` di materi ini dijalankan dari direktori **`backend/`**. Root repository tidak mempunyai `package.json` gabungan. Dependency NestJS, Prisma 7, `class-validator`, `class-transformer`, dan adapter PostgreSQL sudah tercantum di `backend/package.json`.
 
 ### 0b. Siapkan PostgreSQL latihan
 
@@ -86,7 +79,7 @@ DATABASE_URL="postgresql://workshop:workshop_local_only@localhost:5433/task_mana
 
 Jika database panitia punya host/user/password berbeda, gunakan URL yang diberikan panitia. `DATABASE_URL` menunjuk **database yang boleh diubah oleh latihan**, karena migrasi dan seed akan menulis di sana. File `.env` diabaikan Git pada proyek ini.
 
-**Bedah baris konfigurasi:**
+**Fungsi setiap konfigurasi:**
 
 - `PORT=3001`: Nest mendengarkan request di port 3001; frontend Day 2 memakai port 3000.
 - `FRONTEND_URL`: alamat origin yang diizinkan CORS oleh kode akhir `main.ts`. CORS mengatur browser, bukan menggantikan validasi input.
@@ -108,22 +101,20 @@ Jika database panitia punya host/user/password berbeda, gunakan URL yang diberik
 | `backend/src/prisma/*` | Koneksi Prisma yang dapat di-inject ke module lain. |
 | `backend/prisma/seed.ts` | Data contoh opsional; versi saat ini menghapus semua task dahulu. |
 
-**Checkpoint 0:** minta peserta menunjuk: di mana URL endpoint ditulis, di mana aturan input ditulis, dan di mana query database ditulis. Jawaban akhirnya: controller, DTO, service.
+Gunakan tabel ini saat peserta membuka repository: route didefinisikan di controller, aturan body di DTO, dan operasi database di service melalui `PrismaService`. Ketiga file tersebut akan ditulis pada waktu yang berbeda sepanjang materi.
 
 ## 1. Fundamental HTTP, Nest, dan endpoint paling sederhana
 
-### 1a. Apa yang dikirim dan diterima?
+### 1a. Hubungan HTTP method, path, body, dan status
 
-Sebelum menulis CRUD, tulis contoh berikut di papan:
+Mulai dari bentuk request yang nanti diterima Nest:
 
 ```http
 GET /tasks HTTP/1.1
 Host: localhost:3001
 ```
 
-`GET` adalah **method**, `/tasks` adalah **path**. Respons mempunyai **status** dan **body**. Untuk membuat data, client mengirim `POST /tasks` dengan JSON body. Untuk menunjuk satu task, ID diletakkan pada path, misalnya `/tasks/7`.
-
-**Tanya peserta:** “Apa bedanya `GET /tasks` dan `GET /tasks/7`?” Yang pertama meminta daftar, yang kedua meminta satu task dengan ID 7.
+`GET` adalah HTTP method dan `/tasks` adalah path. Kombinasinya memilih handler `GET /tasks` di controller. Respons memiliki status HTTP dan, jika ada data, body. `GET /tasks` meminta daftar; `GET /tasks/7` meminta task dengan ID 7. `POST /tasks` menambahkan body JSON untuk data task baru. Perbedaan method dan path ini yang nanti ditulis melalui dekorator `@Get()`, `@Post()`, dan `@Get(':id')`.
 
 ### 1b. Jalankan endpoint bawaan Nest
 
@@ -171,11 +162,11 @@ Di terminal lain:
 curl -i http://localhost:3001/
 ```
 
-**Checkpoint 1:** status `200` dan body `Hello World!`. Jelaskan bahwa file TypeScript yang berhasil dikompilasi belum membuktikan koneksi database; kita bahkan belum membuat koneksi pada tahap ini.
+**Verifikasi langkah 1:** `curl -i` menampilkan status `200`, header respons, dan body `Hello World!`. Request ini baru melewati `AppController` dan `AppService`. Belum ada query PostgreSQL, jadi respons berhasil di tahap ini belum membuktikan konfigurasi database benar.
 
 ## 2. Buat route Task dengan data statis
 
-**Tujuan kecil:** melihat hubungan antara dekorator controller dan URL tanpa mencampurnya dengan database.
+**Tujuan langkah ini:** membuat `GET /tasks` dan melihat bagaimana `@Controller()` serta `@Get()` membentuk route. Data ditulis langsung di method agar hubungan antara route dan respons terlihat sebelum menambahkan service atau database.
 
 Buat folder `backend/src/tasks/`. Buat `tasks.controller.ts`:
 
@@ -220,11 +211,11 @@ Pada `app.module.ts`, tambahkan `import { TasksModule } from './tasks/tasks.modu
 curl -i http://localhost:3001/tasks
 ```
 
-**Checkpoint 2:** respons `200` berisi dua task. Restart Nest lalu ulangi request: datanya tetap sama karena ditulis di kode, bukan disimpan lewat API.
+**Verifikasi langkah 2:** `GET /tasks` mengembalikan `200` dan array dengan dua task sesuai kode. Jika backend di-restart, dua task yang sama tetap muncul karena nilainya merupakan bagian dari source code. Belum ada data yang dibuat melalui request atau disimpan di PostgreSQL.
 
 ## 3. Pindahkan pekerjaan ke Service dan pahami dependency injection
 
-**Tujuan kecil:** controller hanya menerima HTTP dan memanggil service. Untuk sementara service masih menyimpan data di memori.
+**Tujuan langkah ini:** memindahkan operasi Task dari controller ke `TasksService`. Route dan bentuk respons tetap sama; yang berubah adalah lokasi logic pengambilan data. Array sementara berada di service dan masih hidup hanya selama proses Nest berjalan.
 
 Buat `backend/src/tasks/tasks.service.ts`:
 
@@ -278,19 +269,19 @@ Di `tasks.module.ts`, tambahkan import `TasksService` dan `providers: [TasksServ
 export class TasksModule {}
 ```
 
-**Bedah baris:** `@Injectable()` menandai service sebagai provider yang dapat dikelola Nest. `private readonly tasks` adalah data sementara di memori proses, **belum PostgreSQL**. `constructor(private readonly tasksService: TasksService)` meminta Nest membuat atau menyediakan service. `providers` di TasksModule adalah tempat service didaftarkan. Controller tidak lagi tahu dari mana daftar berasal; ia hanya memanggil `findAll()`.
+**Baca alur dependency injection pada kode:** `@Injectable()` membuat `TasksService` dapat dipakai sebagai provider Nest. `providers: [TasksService]` mendaftarkannya dalam `TasksModule`. Constructor controller menyatakan dependency yang dibutuhkan; saat membangun controller, Nest menyediakan instance `TasksService`. Ketika `GET /tasks` dipanggil, controller menjalankan `tasksService.findAll()` dan Nest mengirim nilai kembalinya sebagai JSON. `private readonly tasks` adalah array dalam proses backend, **belum PostgreSQL**; `readonly` membatasi penggantian referensi property di TypeScript, bukan membuat isi array tidak dapat berubah.
 
-**Demo sengaja:** hilangkan `providers: [TasksService]` sebentar, lalu jalankan Nest. Pesan `Nest can't resolve dependencies` menunjukkan mengapa wiring module penting. Kembalikan baris provider dan pastikan aplikasi start lagi.
+Untuk memperlihatkan peran `providers`, hapus sementara `TasksService` dari array tersebut dan jalankan Nest. Nest gagal membuat `TasksController` karena dependency pada constructor tidak tersedia. Kembalikan `providers: [TasksService]` setelah melihat error, lalu pastikan aplikasi berjalan lagi. Perubahan sementara ini hanya untuk mengamati proses dependency injection.
 
 ```bash
 curl -i http://localhost:3001/tasks
 ```
 
-**Checkpoint 3:** respons masih sama dengan tahap 2. Perubahan struktur internal tidak harus mengubah kontrak HTTP.
+**Verifikasi langkah 3:** `GET /tasks` tetap menghasilkan `200` dan dua task yang sama. Respons HTTP belum berubah karena controller masih mengembalikan hasil `findAll()`; pemindahan array ke service mengubah struktur kode, bukan kontrak endpoint.
 
 ## 4. Tambah POST sederhana, lalu tunjukkan mengapa tipe TypeScript belum cukup
 
-**Tujuan kecil:** peserta memahami request body, status `201`, dan perbedaan tipe saat menulis kode dengan validasi saat request masuk.
+**Tujuan langkah ini:** menerima JSON body pada `POST /tasks` dan menambah satu Task ke array sementara. Contoh ini sengaja belum memakai DTO agar terlihat batas tipe TypeScript: anotasi `title: string` membantu saat menulis kode, tetapi tidak memeriksa JSON yang dikirim client pada runtime.
 
 Pada `tasks.service.ts` sementara, tambahkan method di bawah `findAll()`:
 
@@ -316,7 +307,7 @@ create(@Body() body: { title: string; description?: string }) {
 }
 ```
 
-**Bedah baris:** `@Post()` memetakan `POST /tasks`. `@Body()` membaca JSON request body. `DemoTask` menjaga kode TypeScript sementara tetap konsisten. `this.tasks.push(task)` mengubah array di memori; data hilang saat proses restart. `id: this.tasks.length + 1` cukup untuk demo singkat, tetapi bukan strategi ID database yang aman ketika ada penghapusan atau request bersamaan. PostgreSQL nanti membuat ID dengan `autoincrement()`.
+**Ikuti request dari controller ke service:** `@Post()` memetakan method POST ke path `/tasks`. `@Body()` mengambil object hasil parsing JSON dan meneruskannya ke `create()`. Service memakai `body.title` dan `body.description` untuk membentuk `DemoTask`, mengisi `completed: false`, lalu `this.tasks.push(task)` menambahnya ke array proses. Nest memakai object yang dikembalikan service sebagai body respons dan default status POST adalah `201`. Nilai `id: this.tasks.length + 1` hanya cukup untuk tahap ini: setelah data dihapus atau beberapa request diproses berdekatan, ID bisa bentrok. Pada tahap database, ID dibuat oleh PostgreSQL melalui `autoincrement()`.
 
 ```bash
 curl -i http://localhost:3001/tasks \
@@ -334,13 +325,13 @@ curl -i http://localhost:3001/tasks \
   -d '{"description":"Tidak ada judul"}'
 ```
 
-**Pertanyaan untuk peserta:** “Mengapa `title: string` di parameter tadi tidak otomatis menghasilkan error 400?” Karena tipe TypeScript hilang saat JavaScript berjalan. Request dari internet tetap perlu diperiksa **pada runtime**.
+Request tanpa `title` masih dapat mencapai method `create()`, karena `title: string` tidak menghasilkan pemeriksaan runtime. TypeScript menghapus anotasi tipe saat dikompilasi; client HTTP tidak menjalankan type checker proyek. Dari respons dan `GET /tasks`, tunjukkan bahwa data yang tidak sesuai kontrak bisa masuk ke array. Inilah alasan tahap berikutnya memasang DTO dan `ValidationPipe`.
 
-**Checkpoint 4:** peserta dapat menjelaskan mengapa data sementara hilang setelah restart dan mengapa tipe TypeScript saja belum memvalidasi JSON.
+**Verifikasi langkah 4:** POST dengan body valid menghasilkan `201` dan GET menampilkan Task baru. POST tanpa `title` menunjukkan bahwa input belum divalidasi oleh aplikasi. Setelah backend di-restart, Task yang dibuat melalui POST hilang karena array dibuat ulang dari nilai awal service.
 
 ## 5. DTO dan ValidationPipe: aturan input dijalankan saat request datang
 
-**Tujuan kecil:** input tidak sah dihentikan sebelum mencapai service. Pada repository akhir, proyek memakai class DTO dan `ValidationPipe` global.
+**Tujuan langkah ini:** menjalankan validasi body pada runtime sebelum method controller memanggil service. Kita memakai class DTO untuk aturan field dan `ValidationPipe` global untuk menerapkan aturan tersebut pada request yang masuk.
 
 Buat `backend/src/tasks/dto/create-task.dto.ts`:
 
@@ -435,11 +426,11 @@ curl -i http://localhost:3001/tasks \
   -d '{"title":"Contoh","role":"admin"}'
 ```
 
-**Checkpoint 5:** sebelum request, minta peserta menebak statusnya. Setelah request, tunjukkan bahwa controller/service tidak perlu menulis `if` satu per satu untuk aturan DTO ini. Simpan pertanyaan “apakah spasi saja dianggap judul valid?” untuk diskusi batasan di akhir.
+**Verifikasi langkah 5:** body valid menghasilkan `201`; body tanpa `title` dan body dengan field `role` menghasilkan `400`. Baca pesan pada respons `400`, lalu hubungkan masing-masing dengan decorator DTO atau opsi `forbidNonWhitelisted`. Controller tidak menjalankan `create()` ketika pipe menolak body. Perhatikan bahwa `@IsNotEmpty()` belum menolak judul yang hanya berisi spasi, karena kode belum memanggil `trim()`.
 
 ## 6. Kenalkan schema Task, migrasi SQL, dan Prisma Client
 
-**Tujuan kecil:** mengganti penyimpanan di memori dengan PostgreSQL tanpa sekaligus menulis semua endpoint. Pada tahap ini cukup pahami **bentuk tabel** dan tiga perintah Prisma.
+**Tujuan langkah ini:** memahami hubungan antara model Prisma, migrasi SQL, dan Prisma Client sebelum mengganti array sementara dengan query database. Model sudah ada pada commit awal latihan; kita membacanya, menerapkan migrasi, lalu generate client yang akan dipakai `PrismaService` pada langkah 7.
 
 ### 6a. Baca model yang sudah ada
 
@@ -475,7 +466,7 @@ model Task {
 5. `completed Boolean @default(false)`: task baru otomatis belum selesai jika client tidak mengirim nilai ini.
 6. `createdAt @default(now())`: waktu pembuatan otomatis. `updatedAt @updatedAt`: Prisma memperbarui waktu ketika record berubah.
 
-**Hubungkan dengan SQL:** repository sudah menyimpan `backend/prisma/migrations/20260914143720_init_task/migration.sql`. Bagian intinya:
+**Bandingkan model dengan migrasi SQL:** repository sudah menyimpan `backend/prisma/migrations/20260914143720_init_task/migration.sql`. Bagian intinya:
 
 ```sql
 CREATE TABLE "Task" (
@@ -533,11 +524,11 @@ pnpm exec prisma generate
 
 CLI proyek ini memang menemukan `prisma7.config.ts` secara otomatis saat perintah di atas dijalankan dari `backend/`. Jika `migrate dev` menawarkan **reset**, berhenti dan periksa bahwa URL benar-benar mengarah ke database latihan yang boleh dihapus; reset dapat menghilangkan data. Jika koneksi gagal, periksa PostgreSQL, port, user/password, nama database, dan `DATABASE_URL` tanpa menampilkan kredensial di layar publik.
 
-**Checkpoint 6:** peserta dapat menunjuk tabel `Task` di database setelah migrasi. Bila ingin melihatnya melalui UI, jalankan `pnpm exec prisma studio` dari `backend/` dan buka model Task di browser. Lalu minta peserta menjawab: “`validate` memeriksa schema, `migrate` mengubah database, `generate` membuat API TypeScript.” `GET /tasks` pada kode sementara masih membaca array; database baru akan dipakai pada langkah berikutnya.
+**Verifikasi langkah 6:** tabel `Task` muncul di database latihan setelah `migrate dev`. Jika perlu melihatnya lewat UI, jalankan `pnpm exec prisma studio` dari `backend/`. Bandingkan field tabel dengan `schema.prisma` dan `migration.sql`. `GET /tasks` pada tahap ini masih membaca array di `TasksService`, sehingga hasil endpoint belum membuktikan penggunaan database. Perubahan itu baru dilakukan pada langkah 7.
 
 ## 7. Buat PrismaService, sambungkan module, ganti array dengan query
 
-**Tujuan kecil:** mengubah sumber data `GET /tasks` dan `POST /tasks`, sementara URL/controller/DTO tetap sama. Inilah keuntungan pemisahan controller dan service.
+**Tujuan langkah ini:** mengganti implementasi `create()` dan `findAll()` agar keduanya memakai PostgreSQL. Route, body request, dan DTO tetap sama. Perubahan difokuskan pada provider koneksi Prisma dan method di `TasksService`.
 
 ### 7a. Koneksi Prisma sebagai provider Nest
 
@@ -658,7 +649,7 @@ export class TasksService {
 }
 ```
 
-**Bedah baris:** constructor meminta PrismaService dari Nest. `task.create({ data: body })` membuat baris berdasarkan field DTO yang sudah lolos pipe. `task.findMany()` membaca semua baris Task. Tidak ada `orderBy` di kode repo saat ini, jadi **jangan menjanjikan urutan tertentu** pada daftar. Return Promise dari Prisma boleh langsung dikembalikan controller; Nest menunggu hasilnya untuk respons HTTP.
+**Ikuti baris pada service:** constructor meminta `PrismaService` yang diekspor `PrismaModule`. Pada `create()`, `data: body` mengirim field hasil validasi DTO ke Prisma; `id` dan `completed` mengikuti default pada schema, `createdAt` diisi saat pembuatan, dan `updatedAt` dikelola Prisma. `findMany()` membaca seluruh baris Task karena belum ada `where`. Kode ini tidak memakai `orderBy`, sehingga urutan daftar tidak ditentukan. Method Prisma mengembalikan Promise; Nest menunggu hasilnya sebelum mengirim respons HTTP.
 
 Pada tahap ini method tidak diberi `async` karena tidak memakai `await`; Promise tetap diteruskan ke Nest. Referensi kode akhir di langkah 11 menulisnya dengan `async` seperti checkout sekarang. Keduanya bekerja untuk alur ini; tidak ada tahap tambahan yang terlewat.
 
@@ -676,11 +667,11 @@ curl -i http://localhost:3001/tasks
 
 Restart Nest, lalu ulangi GET. Task baru tetap ada karena sumber datanya sekarang PostgreSQL. Respons task juga memuat `id`, `completed: false`, `createdAt`, dan `updatedAt` dari model. Catat ID hasil POST untuk tahap detail/update/delete; **jangan menebak ID 1** karena database bisa sudah berisi data.
 
-**Checkpoint 7:** peserta dapat menjelaskan perbedaan `findAll()` dari tahap 3 (array proses) dengan `findAll()` sekarang (query database), meskipun route tetap `GET /tasks`.
+**Verifikasi langkah 7:** setelah POST berhasil, ulangi GET lalu restart Nest dan jalankan GET lagi. Task tetap ada. Bandingkan `findAll()` tahap 3 yang mengembalikan array pada service dengan `findAll()` sekarang yang menjalankan query Prisma. Path dan status HTTP tetap sama, tetapi sumber data dan persistensinya berubah.
 
 ## 8. Ambil satu task berdasarkan ID
 
-**Tujuan kecil:** membaca satu baris dan membedakan ID yang bentuknya salah dari task yang tidak ada.
+**Tujuan langkah ini:** menambahkan `GET /tasks/:id` dan membedakan dua kegagalan: parameter path yang bukan integer ditolak `ParseIntPipe` dengan `400`, sedangkan ID integer yang tidak ditemukan oleh Prisma menghasilkan `404` dari service.
 
 Di `backend/src/tasks/tasks.service.ts`, tambahkan `NotFoundException` pada import `@nestjs/common` dan method berikut di bawah `findAll()`:
 
@@ -704,7 +695,7 @@ findOne(@Param('id', ParseIntPipe) id: number) {
 }
 ```
 
-**Bedah baris sesuai perjalanan request:**
+**Baca request sesuai urutan eksekusi:**
 
 1. `@Get(':id')` menamai satu bagian URL sebagai parameter `id`.
 2. `@Param('id', ParseIntPipe)` mengambil bagian itu dan mengubahnya menjadi integer. URL selalu datang sebagai teks; `ParseIntPipe` memberi `400` bila nilainya tidak valid.
@@ -720,11 +711,11 @@ curl -i http://localhost:3001/tasks/bukan-angka
 curl -i http://localhost:3001/tasks/999999999
 ```
 
-**Checkpoint 8:** ID valid yang ada → `200`; `bukan-angka` → `400`; ID angka yang tidak ada → `404`. Tanyakan kepada peserta: “Mengapa dua input salah ini statusnya berbeda?” Satu gagal **bentuk parameter**, satu berhasil dipahami tetapi **datanya tidak ditemukan**.
+**Verifikasi langkah 8:** ID dari hasil POST menghasilkan `200`; `/tasks/bukan-angka` menghasilkan `400` sebelum service dipanggil; ID integer yang tidak ada menghasilkan `404` setelah `findUnique()` mengembalikan `null`. Hubungkan tiap status dengan baris kode yang menghasilkannya agar perbedaan validasi parameter dan pencarian data terlihat.
 
 ## 9. PATCH: ubah sebagian field
 
-**Tujuan kecil:** peserta mengerti perbedaan input create dan update. Create butuh judul; update dapat mengirim hanya field yang ingin berubah.
+**Tujuan langkah ini:** menambahkan `PATCH /tasks/:id` untuk memperbarui sebagian field. Pada POST, `title` wajib untuk membuat Task baru. Pada PATCH, client cukup mengirim field yang ingin diubah, misalnya `{ "completed": true }`; field yang tidak dikirim tidak perlu diubah.
 
 Buat `backend/src/tasks/dto/update-task.dto.ts` sesuai repository sekarang:
 
@@ -788,13 +779,13 @@ curl -i -X PATCH "http://localhost:3001/tasks/$TASK_ID" \
   -d '{"completed":"true"}'
 ```
 
-**Checkpoint 9:** PATCH boolean yang benar → `200` dan hanya status selesai berubah; string `"true"` → `400`. Minta peserta menunjukkan di mana validasi boolean berada dan di mana query update berada.
+**Verifikasi langkah 9:** body `{ "completed": true }` menghasilkan `200` dan nilai `completed` terbaru; body `{ "completed": "true" }` menghasilkan `400` dari `@IsBoolean()`. Periksa bahwa `title` dan `description` tetap sama jika tidak dikirim. DTO menentukan apakah body diterima, sedangkan `task.update()` melakukan perubahan pada baris database.
 
-> **Kejujuran terhadap kode sekarang:** DTO ini mengizinkan `PATCH {}` dan `title: ''` (tidak ada `@IsNotEmpty()` pada UpdateTaskDto). Service saat ini juga langsung memanggil Prisma `update`; jika ID tidak ada, error Prisma `P2025` belum dipetakan secara eksplisit ke `404`, sehingga aplikasi dapat mengembalikan error server. Jangan menyebut PATCH ID hilang sebagai `404` yang dijamin oleh implementasi saat ini. Gunakan ini sebagai pertanyaan lanjutan: aturan apa yang ingin kita tambah setelah peserta menguasai alur dasar?
+> **Batas implementasi saat ini:** DTO mengizinkan `PATCH {}` dan `title: ''` karena semua field opsional dan `UpdateTaskDto` tidak memakai `@IsNotEmpty()`. Service juga langsung memanggil Prisma `update`; untuk ID yang tidak ada, error Prisma `P2025` belum diterjemahkan secara eksplisit menjadi `404`. Karena itu, jangan menjanjikan status `404` untuk PATCH ID yang hilang pada kode Day 1. Kasus ini menunjukkan bahwa validasi input dan pemetaan error database perlu ditentukan secara terpisah.
 
 ## 10. DELETE: hapus task yang sudah ditemukan
 
-**Tujuan kecil:** melengkapi CRUD dan melihat bahwa urutan tes penting: baca/ubah dahulu, hapus terakhir.
+**Tujuan langkah ini:** menambahkan `DELETE /tasks/:id`. Jalankan demo detail dan PATCH lebih dulu, karena DELETE akan menghapus baris yang dipakai dalam pengujian tersebut.
 
 Di service, tambahkan method yang mencerminkan kode saat ini:
 
@@ -827,7 +818,7 @@ curl -i "http://localhost:3001/tasks/$TASK_ID"
 curl -i -X DELETE "http://localhost:3001/tasks/$TASK_ID"
 ```
 
-**Checkpoint 10:** DELETE pertama → `200` dengan task yang dihapus; GET sesudahnya → `404`; DELETE kedua → `404` dari `findOne`. Jangan hapus task sebelum demo PATCH tahap 9 selesai.
+**Verifikasi langkah 10:** DELETE pertama menghasilkan `200` dengan Task yang dihapus. GET menggunakan ID yang sama kemudian menghasilkan `404`; DELETE kedua juga `404` karena `findOne()` tidak menemukan Task lagi. Hasil ini hanya berlaku untuk ID yang sudah dicatat dan diuji pada langkah sebelumnya.
 
 ## 11. Lihat hasil akhir bersama peserta
 
@@ -977,9 +968,9 @@ Dari `backend/`, jalankan hanya pada database latihan yang memang boleh diisi ul
 pnpm exec prisma db seed
 ```
 
-**Bedah konsep:** `db seed` adalah perintah Prisma CLI yang sudah tersedia dari paket `prisma`; bukan script bernama `db seed` di `package.json`. Baris `seed: 'tsx prisma/seed.ts'` dalam `prisma7.config.ts` memberi tahu CLI **file apa yang harus dijalankan**. File `seed.ts` menentukan **data apa yang dibuat**. Pada Prisma 7, jalankan seed secara eksplisit; jangan mengandalkan migrasi untuk memanggilnya. Jika peserta meneruskan ke Day 3, ketiga task ini belum punya pemilik; ikuti rencana migrasi ownership di materi Day 3.
+**Hubungan konfigurasi dan perintah:** `db seed` adalah subcommand Prisma CLI dari paket `prisma`, bukan script di `package.json`. Nilai `seed: 'tsx prisma/seed.ts'` pada `prisma7.config.ts` menentukan command yang dijalankan CLI; isi `seed.ts` menentukan operasi database yang dilakukan command itu. Pada Prisma 7, jalankan seed secara eksplisit. Ketiga Task hasil seed Day 1 belum punya pemilik, sehingga sebelum menambahkan kolom `userId` wajib pada Day 3 data ini perlu dihapus atau diberi pemilik lewat migrasi yang direncanakan.
 
-**Checkpoint 12:** setelah seed, `GET /tasks` menampilkan tiga task contoh, sedangkan task manual sebelumnya tidak ada lagi. Minta peserta menunjuk baris `deleteMany()` yang menjelaskan perubahan itu.
+**Verifikasi langkah 12:** setelah seed, `GET /tasks` menampilkan tiga Task contoh. Task manual sebelumnya tidak ada karena `deleteMany()` dijalankan sebelum `createMany()`. Tunjukkan bahwa perubahan ini berasal dari skrip seed, bukan dari endpoint GET.
 
 ## 13. Matriks uji Day 1 dan cara menjelaskan hasilnya
 
@@ -1021,14 +1012,14 @@ curl -i "http://localhost:3001/tasks/$TASK_ID"
 | `DELETE` ID yang sudah hilang | `404` | `findOne` menolak sebelum `delete`. |
 | POST dengan field asing | `400` | Global pipe menolak property yang tidak ada pada DTO. |
 
-**Batasan snapshot yang perlu disampaikan jujur:**
+**Batas implementasi Day 1 yang perlu dijelaskan:**
 
 - `POST` dengan judul berisi spasi saja lolos `@IsNotEmpty()` karena tidak ada trim. Ini contoh bahwa aturan bisnis dan aturan tipe bisa berbeda.
 - `PATCH {}` lolos DTO karena semua field optional. `PATCH` dengan ID yang hilang belum mengubah error Prisma `P2025` menjadi `404` yang konsisten.
 - `@IsOptional()` melewati `null` juga; pada kolom wajib seperti `title`, input seperti itu dapat gagal saat Prisma menulis ke database.
 - `GET /tasks` belum memakai pagination, sort, atau filter kepemilikan. Seluruh task masih dapat dilihat bersama. Day 3 akan menambahkan user dan membatasi akses ke task milik masing-masing.
 
-**Pertanyaan penutup:** “Jika kita ingin `PATCH` yang tidak mengirim satu pun field langsung ditolak, perubahan paling tepat ada di mana? Jika kita ingin setiap user hanya melihat task sendiri, apakah cukup menyembunyikan kartu di frontend?” Gunakan jawaban peserta untuk menjembatani validasi lanjutan dan Day 3.
+Untuk menghubungkan Day 1 dengan materi berikutnya, tunjukkan dua kebutuhan yang belum ditangani kode ini. Menolak body `PATCH {}` memerlukan aturan validasi tambahan. Memisahkan Task per user memerlukan identitas hasil authentication dan filter pada query backend; menyembunyikan Task di tampilan frontend saja tidak membatasi akses lewat HTTP. Keduanya akan lebih mudah dipahami setelah peserta dapat menelusuri route, DTO, service, dan query dari satu request.
 
 ### Pemeriksaan kode setelah live coding
 
@@ -1054,9 +1045,11 @@ Kedua perintah memeriksa schema dan tipe kode. Keduanya **tidak** membuktikan re
 | `migrate dev` meminta reset | Periksa URL/database dan riwayat migrasi sebelum menyetujui penghapusan data. |
 | Task lama hilang sesudah seed | `seed.ts` memanggil `task.deleteMany()` sebelum membuat contoh. |
 
-## Kalimat penutup fasilitator
+## Penutup sesi
 
-“Kita mulai dengan route yang mengembalikan array biasa supaya paham HTTP dan controller. Kita pindahkan pekerjaan ke service supaya controller tetap tipis. TypeScript membantu saat menulis kode, sedangkan DTO dan pipe memeriksa data nyata yang datang lewat HTTP. Prisma schema menjelaskan bentuk tabel, migrasi membuat tabel di PostgreSQL, dan PrismaService memberi query ke service Task. Terakhir, kita menambah baca satu task, ubah, dan hapus. Hari ini daftar task masih milik bersama; pada Day 3 kita menambahkan identitas pemilik.”
+Rangkum kembali satu request POST yang sudah dijalankan peserta: `TasksController` menerima body, `ValidationPipe` memeriksanya memakai `CreateTaskDto`, `TasksService` memanggil `PrismaService.task.create()`, lalu hasil dari PostgreSQL dikirim sebagai respons `201`. Pada GET, PATCH, dan DELETE, alur controller ke service tetap sama, tetapi method Prisma dan kemungkinan status error berbeda. Minta peserta membuka satu contoh di Network atau `curl` dan menunjuk baris kode yang menghasilkan status serta body responsnya.
+
+Sampai akhir Day 1, semua Task berada dalam daftar bersama. Day 2 memakai endpoint ini dari Next.js. Day 3 menambahkan model User, authentication, dan filter `userId` pada operasi Task.
 
 ## Rujukan resmi
 

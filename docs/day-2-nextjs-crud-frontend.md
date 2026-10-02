@@ -1,10 +1,12 @@
 # Day 2 Workshop — Next.js CRUD Frontend untuk Task
 
-> **Untuk fasilitator:** materi ini merekonstruksi frontend yang **sudah ada** di repository saat ini. Mulai dari halaman statis, lalu tambah interaksi lokal, sambungkan ke API NestJS, dan terakhir pecah komponennya. Saat live coding, **ganti** potongan tahap sebelumnya; jangan menempelkan fungsi baru di samping fungsi lama yang bernama sama. Contoh akhir mempertahankan struktur proyek sekarang, dengan perbaikan satu request `PATCH` per klik dan penanganan error sederhana yang dijelaskan di bawah.
+Materi ini mengikuti struktur frontend yang ada di repository. Targetnya adalah halaman `/tasks` yang membaca data dari API NestJS dan menyediakan aksi tambah, ubah status, dan hapus task. Kita mulai dari JSX statis agar peserta memahami render daftar, lalu menambah state dan event handler, kemudian menghubungkan setiap aksi ke API. Pemisahan ke `TaskForm`, `TaskItem`, dan `TaskView` dilakukan setelah alur CRUD dalam satu halaman dipahami.
 
-## Hasil belajar dan batas Day 2
+**Cara memakai contoh kode:** langkah 1–3 adalah latihan sementara dengan data di browser. Pada langkah 5, kode lokal itu diganti ketika mulai memakai API. Potongan kode yang menyebut “tambahkan” disisipkan ke file pada langkah tersebut; potongan yang menyebut “ganti” menggantikan versi sebelumnya. Jangan menyimpan dua handler bernama sama. Kode lengkap pada langkah 9–10 adalah acuan hasil akhir, jadi tidak perlu ditempel ulang setelah peserta menyelesaikan langkah sebelumnya.
 
-Peserta akan dapat menjelaskan alur berikut tanpa hanya menghafal kode:
+## Target pembelajaran
+
+Pada akhir sesi, peserta bisa menelusuri alur satu interaksi sampai data di database berubah:
 
 ```text
 Pengguna klik / mengetik
@@ -15,7 +17,7 @@ Pengguna klik / mengetik
   → setState memperbarui tampilan
 ```
 
-Dashboard sederhana yang dibuat adalah halaman `/tasks`: ada judul, form tambah task, daftar task, status selesai/belum, aksi ubah status dan hapus, serta tampilan loading/error. **Belum ada** grafik, statistik, form edit judul/deskripsi, login, atau pembatasan task per pengguna. Login dan kepemilikan task adalah materi [Day 3](./day-3-auth-nextjs-nestjs.md).
+Halaman `/tasks` akan menampilkan form, daftar task, status selesai/belum, loading, error, dan empty state. Form edit judul/deskripsi belum dibuat; `PATCH` pada sesi ini hanya mengubah `completed`. Authentication dan kepemilikan task dibahas pada [Day 3](./day-3-auth-nextjs-nestjs.md).
 
 | Aksi di UI | HTTP ke NestJS | Respons sukses | Perubahan di React |
 | --- | --- | --- | --- |
@@ -26,13 +28,13 @@ Dashboard sederhana yang dibuat adalah halaman `/tasks`: ada judul, form tambah 
 
 Backend juga mempunyai `GET /tasks/:id`, tetapi dashboard saat ini tidak memerlukan halaman detail. Semua task masih merupakan daftar bersama karena model Day 2 belum mempunyai pemilik.
 
-**Kalimat pembuka:** “Kemarin kita membuat dapur API. Hari ini kita membuat layar yang menerima input pengguna dan berbicara dengan dapur itu melalui HTTP. React menyimpan hasil respons untuk menggambar ulang layar.”
+Hubungan dengan Day 1: NestJS sudah menyediakan endpoint dan PostgreSQL menyimpan task. Di Day 2, browser memanggil endpoint tersebut dengan `fetch`. Setelah respons berhasil diterima, React memperbarui state sehingga daftar di halaman mengikuti data dari server.
 
 ## 0. Persiapan dan peta proyek
 
-### 0a. Pakai kode sekarang sebagai target, bukan sebagai titik kosong
+### 0a. Kenali file yang akan dipakai
 
-Pada checkout utama, `frontend/src/app/tasks/page.tsx`, `tasks.api.ts`, `TaskForm`, `TaskItem`, dan `TaskView` sudah ada. Untuk live coding dari nol, pakai branch latihan atau salinan kerja terpisah, lalu **ganti isi** `frontend/src/app/tasks/page.tsx` dengan versi paling sederhana di langkah 1. File `/tasks` di checkout utama menjadi acuan perbandingan. Jika peserta hanya mengikuti penjelasan tanpa mengubah repo, setiap potongan “sementara” dibaca sebagai tahapan menuju file akhir.
+Pada checkout saat ini, `frontend/src/app/tasks/page.tsx`, `tasks.api.ts`, `TaskForm`, `TaskItem`, dan `TaskView` sudah ada. Jika ingin live coding dari tahap awal, siapkan branch latihan atau salinan kerja terpisah dan ganti isi `page.tsx` sesuai langkah 1. Kode yang ada di checkout dipakai sebagai acuan struktur akhir. Di akhir materi ada beberapa perbaikan kecil terhadap perilaku checkout saat ini; perbedaannya ditandai secara eksplisit.
 
 Folder yang perlu dibuka bersama peserta:
 
@@ -89,11 +91,11 @@ Browser :3000 ──fetch──> NestJS :3001 ──Prisma──> PostgreSQL
 
 **Bedakan tiga alamat:** `localhost:3000` adalah halaman Next.js, `localhost:3001` adalah API NestJS, dan alamat PostgreSQL hanya dipakai backend. CORS adalah aturan browser untuk mengizinkan request lintas origin; CORS tidak memverifikasi siapa pemanggil API.
 
-**Checkpoint 0:** minta peserta menyebutkan hasil `curl`, URL frontend, URL backend, dan alasan browser perlu tahu `NEXT_PUBLIC_API_URL`.
+**Verifikasi sebelum coding:** `curl` harus menghasilkan `200` dan JSON array. Browser membuka Next.js di `3000`; request ke API menuju NestJS di `3001`. Jika `curl` gagal, periksa backend dan database lebih dulu. Jika `curl` berhasil tetapi request dari browser gagal, periksa `NEXT_PUBLIC_API_URL` dan pengaturan CORS.
 
 ## 1. Fundamental App Router: tampilkan dashboard statis dahulu
 
-Next.js App Router memakai folder sebagai path. `src/app/page.tsx` adalah `/`; `src/app/tasks/page.tsx` adalah `/tasks`. File halaman dapat berupa **Server Component** secara default. Halaman yang hanya menampilkan teks dan data statis belum memerlukan `"use client"`.
+Di App Router, folder menentukan route: `src/app/page.tsx` dirender untuk `/`, sedangkan `src/app/tasks/page.tsx` untuk `/tasks`. Secara default, page adalah **Server Component**. Kita belum memakai state, event handler, atau browser API pada contoh pertama ini, sehingga `"use client"` belum diperlukan.
 
 Di beranda proyek sudah ada pola tautan ini:
 
@@ -135,20 +137,20 @@ export default function TasksPage() {
 }
 ```
 
-**Bedah baris dan konsep:**
+**Yang perlu dijelaskan saat membaca kode:**
 
-- `sampleTasks` adalah array JavaScript biasa. Belum ada API dan belum ada state.
-- `export default function TasksPage()` adalah komponen yang dirender untuk URL `/tasks`.
-- `<main>`, `<h1>`, `<ul>`, dan `<li>` adalah struktur HTML; `className` adalah atribut CSS di JSX. Kelas seperti `max-w-3xl` dan `p-6` berasal dari Tailwind yang sudah dikonfigurasi proyek.
-- `{sampleTasks.map(...)}` mengubah setiap objek menjadi satu elemen JSX. Kurung kurawal berarti “jalankan ekspresi JavaScript di sini”.
-- `key={task.id}` membantu React mencocokkan item lama dan baru; gunakan ID stabil dari task. `key` diletakkan pada elemen yang langsung dihasilkan oleh `map`.
-- `task.completed ? ... : ...` adalah pilihan tampilan berdasarkan boolean.
+- `sampleTasks` adalah array JavaScript yang nilainya ditulis langsung di file. Halaman selalu menampilkan dua data ini, terlepas dari isi database.
+- `export default function TasksPage()` adalah komponen page yang dipakai Next.js untuk route `/tasks`. Nilai yang dikembalikan fungsi ini adalah JSX untuk halaman.
+- `<main>` membungkus konten utama, `<ul>` adalah daftar, dan setiap `<li>` mewakili satu task. `className` berisi kelas Tailwind untuk jarak, lebar, border, dan warna; kelas CSS tidak memengaruhi alur datanya.
+- `{sampleTasks.map((task) => ...)}` menjalankan `map` atas array. Callback menerima satu `task` dan menghasilkan satu `<li>`. Jika array berisi dua objek, React menerima dua elemen daftar.
+- `key={task.id}` memberi identitas stabil untuk setiap elemen hasil `map`. Ketika nanti daftar berubah, React dapat mencocokkan elemen dengan task yang sama.
+- `task.completed ? "Completed" : "Incomplete"` memilih teks berdasarkan nilai boolean `completed`.
 
-**Checkpoint 1:** buka `/tasks`. Dua kartu terlihat. Buka Network tab: belum ada request ke `localhost:3001/tasks`. Tanya: “Kalau database bertambah, apakah daftar ini berubah?” Jawab: tidak, karena datanya masih ditulis di file.
+**Verifikasi:** buka `/tasks` dan pastikan dua task contoh terlihat. Di Network tab belum ada request `GET /tasks` ke NestJS. Tambahan data di PostgreSQL tidak akan muncul di tahap ini karena `sampleTasks` tidak berasal dari API.
 
 ## 2. Dari data statis ke state lokal
 
-**State adalah memori komponen.** Jika data berubah dan layar perlu menggambar ulang, simpan data itu di state. Variabel JavaScript biasa dapat diubah, tetapi React tidak memakai perubahan variabel biasa sebagai sinyal untuk render ulang.
+Sekarang daftar harus berubah ketika status task diklik. `useState` menyimpan nilai yang dibaca pada setiap render dan menyediakan setter untuk meminta React merender ulang dengan nilai baru. Jika hanya mengubah variabel atau properti objek biasa, React tidak mendapat update state yang dapat dipakai untuk memperbarui UI.
 
 Sekarang **ganti isi** `page.tsx` tahap 1 dengan contoh lokal berikut. Ini masih belum menghubungi backend:
 
@@ -198,18 +200,15 @@ export default function TasksPage() {
 }
 ```
 
-**Bedah baris penting:**
+**Baca kode sesuai urutan interaksinya:**
 
-- `"use client"` menandai halaman sebagai batas Client Component. `useState` dan `onClick` perlu berjalan di browser. File beranda `/` tetap bisa menjadi Server Component.
-- `type LocalTask` menjelaskan bentuk data **sementara**. TypeScript membantu saat menulis kode, tetapi tipe ini tidak memeriksa respons jaringan saat runtime.
-- `useState<LocalTask[]>(initialTasks)` menghasilkan pasangan `tasks` (nilai sekarang) dan `setTasks` (cara meminta render baru). `<LocalTask[]>` berarti state berisi array task.
-- `setTasks((currentTasks) => ...)` memakai nilai state terbaru. Bentuk fungsi ini aman saat update datang berdekatan.
-- `map` membuat array baru. Untuk task dengan ID yang cocok, `{ ...task, completed: !task.completed }` membuat objek baru dan membalik boolean. Task lain dikembalikan apa adanya. **Jangan** menulis `task.completed = ...` langsung pada objek state.
-- `onClick={() => handleToggle(task.id)}` memberi React fungsi untuk dijalankan ketika diklik. Jika ditulis `onClick={handleToggle(task.id)}`, fungsi akan langsung dijalankan saat render.
+1. `"use client"` menandai `page.tsx` sebagai entry point Client Component. `useState` dan `onClick` dipakai untuk interaksi di browser. Page `/` tetap dapat menjadi Server Component. Next.js masih dapat mengirim HTML awal untuk Client Component; directive ini menentukan tempat logic interaksinya berjalan.
+2. `type LocalTask` mendefinisikan bentuk objek selama latihan lokal. `useState<LocalTask[]>(initialTasks)` membuat `tasks` sebagai array task dan `setTasks` sebagai fungsi update-nya. Ini bantuan TypeScript saat coding; data dari jaringan tetap harus diperlakukan sebagai data runtime.
+3. `onClick={() => handleToggle(task.id)}` mendaftarkan callback. Fungsi baru dipanggil ketika tombol diklik. Bentuk `onClick={handleToggle(task.id)}` justru memanggil handler saat render.
+4. `handleToggle` menerima ID task yang diklik. `setTasks((currentTasks) => ...)` memakai nilai state terakhir, lalu `map` menghasilkan array baru. Untuk ID yang cocok, spread `{ ...task }` menyalin field lama dan `completed: !task.completed` membalik statusnya. Objek lain dikembalikan tanpa perubahan.
+5. Setelah setter dipanggil, React merender ulang. Ekspresi `task.completed ? ... : ...` sekarang membaca nilai terbaru sehingga teks tombol berubah. Mengubah `task.completed` secara langsung akan memutasi objek state lama; karena itu update dilakukan dengan array dan objek baru.
 
-**Jejak satu klik:** klik tombol → `handleToggle` → `setTasks` → React render ulang → teks `Completed`/`Incomplete` berubah.
-
-**Checkpoint 2:** klik status beberapa kali. Tampilan berubah, tetapi refresh mengembalikan data contoh awal. Itulah batas state lokal: memori halaman tidak sama dengan penyimpanan PostgreSQL.
+**Verifikasi:** klik status beberapa kali. Teks berubah tanpa request ke API. Setelah refresh, dua nilai awal tampil lagi karena `initialTasks` dibaca ulang; belum ada perubahan yang disimpan di PostgreSQL.
 
 ## 3. Form terkontrol sebelum mengenalkan POST
 
@@ -251,21 +250,19 @@ Tambahkan **sebelum** `<ul>` di JSX halaman:
 </form>
 ```
 
-**Jelaskan alur tiap baris:**
+**Urutan yang terjadi ketika form dipakai:**
 
-1. `value={title}` membuat teks yang tampak berasal dari state.
-2. Saat mengetik, `onChange` menerima event dan `setTitle(event.target.value)` menyimpan teks baru.
-3. Setter memicu render ulang; JSX membaca `title` terbaru. Ini disebut **controlled input**.
-4. Tombol `type="submit"` memicu `onSubmit` pada `<form>`. `event.preventDefault()` mencegah browser memuat ulang halaman.
-5. `trim()` membuang spasi di awal/akhir; judul yang hanya berisi spasi tidak ditambahkan.
-6. `Date.now()` hanya pembuat ID **sementara untuk latihan lokal**. Pada tahap API, ID diberikan database; jangan kirim ID buatan browser saat POST.
-7. `[...currentTasks, newTask]` membuat array baru dengan task tambahan. `setTitle("")` mengosongkan input setelah berhasil menambah.
+1. `value={title}` menghubungkan nilai input ke state `title`. `onChange` membaca `event.target.value` setiap kali pengguna mengetik dan memanggil `setTitle`. React merender ulang input dengan nilai state terbaru. Pola ini disebut **controlled input**.
+2. Tombol `type="submit"` mengaktifkan `onSubmit` pada `<form>`. `event.preventDefault()` menghentikan submit HTML bawaan yang akan memuat ulang halaman.
+3. `title.trim()` menghapus spasi di awal dan akhir. Kondisi `if (!cleanTitle) return` menghentikan pembuatan task ketika isi input hanya spasi.
+4. `Date.now()` dipakai sebagai ID sementara untuk contoh lokal. Nilai ini tidak menjamin ID unik jika beberapa item dibuat pada waktu yang sangat berdekatan; tahap ini hanya memperlihatkan render daftar. Setelah memakai API, ID dari database menggantikan nilai buatan browser tersebut.
+5. `setTasks((currentTasks) => [...currentTasks, newTask])` menghasilkan array baru dengan satu task tambahan. `setTitle("")` mengosongkan input setelah update diminta.
 
-**Checkpoint 3:** ketik satu judul, klik Add Task, lihat kartu baru tanpa refresh. Refresh halaman: kartu hilang. Tanyakan kepada peserta komponen mana yang “mengingat” teks input dan mana yang “mengingat” daftar task: keduanya sementara berada di `TasksPage`.
+**Verifikasi:** ketik judul dan klik Add Task. Task baru muncul tanpa reload, tetapi hilang setelah halaman di-refresh. State `title` dan `tasks` sama-sama berada di `TasksPage` pada tahap ini; keduanya dibuat ulang saat halaman dimuat kembali.
 
 ## 4. Sepakati bentuk JSON antara NestJS dan Next.js
 
-Sebelum menulis `fetch`, buka `backend/src/tasks/tasks.controller.ts` serta DTO create/update dari Day 1. Browser perlu mengirim **JSON** dengan field yang dikenal backend. Backend memvalidasi judul wajib, maksimal 120 karakter; deskripsi opsional, maksimal 500 karakter. `completed` adalah boolean untuk update. Frontend type membantu editor, sedangkan validasi DTO backend tetap menjadi penjaga request sesungguhnya.
+Sebelum menulis `fetch`, buka `backend/src/tasks/tasks.controller.ts` serta DTO create/update dari Day 1. `TasksController` menentukan route dan method HTTP; DTO menentukan field serta validasi body request. `CreateTaskDto` mensyaratkan `title` berupa string tidak kosong dengan batas 120 karakter dan menerima `description` opsional sampai 500 karakter. `UpdateTaskDto` menerima field opsional, termasuk `completed` yang harus boolean. Tipe TypeScript di frontend membantu kita membentuk request saat coding, sedangkan `ValidationPipe` di backend memeriksa data yang benar-benar dikirim pada runtime.
 
 Buat atau samakan `frontend/src/features/tasks/types/task.ts`:
 
@@ -307,7 +304,7 @@ curl -i -X POST http://localhost:3001/tasks \
   -d '{"title":"Task dari curl","description":"Data latihan Day 2"}'
 ```
 
-**Checkpoint 4:** minta peserta membedakan `Task` (respons), `CreateTaskInput` (body POST), dan `UpdateTaskInput` (body PATCH). Setelah `curl`, refresh `GET /tasks`: task dari curl kini ada di database.
+**Verifikasi kontrak:** request `curl` menghasilkan `201` dengan objek Task berisi `id`, `createdAt`, dan `updatedAt` dari server. Panggil `GET /tasks` lagi dan pastikan task tersebut ada. Dengan contoh ini, perbedaan `CreateTaskInput` (body POST), `UpdateTaskInput` (body PATCH), dan `Task` (respons API) terlihat dari data nyata.
 
 ## 5. GET: ambil data saat halaman dibuka
 
@@ -395,7 +392,7 @@ Langkah 6–8 akan mengembalikan aksi-aksi itu dengan data database. `LocalTask`
 
 > **Catatan Development:** dalam `next dev`, React Strict Mode dapat membuat effect awal terlihat berjalan dua kali. Dua GET awal di Network tab bisa berasal dari pemeriksaan development. Ini berbeda dari bug dua PATCH per **satu klik** yang dijelaskan pada langkah 7.
 
-**Checkpoint 5:** buka DevTools → Network → Fetch/XHR, refresh `/tasks`, lalu buka respons `GET /tasks`. Data JSON di respons harus cocok dengan kartu. Hentikan backend sebentar: halaman menampilkan error setelah request gagal. Nyalakan kembali backend untuk tahap berikutnya.
+**Verifikasi langkah 5:** buka DevTools → Network → Fetch/XHR, refresh `/tasks`, lalu buka respons `GET /tasks`. Cocokkan `id`, `title`, dan `completed` pada JSON dengan kartu yang dirender. Hentikan backend sementara dan refresh lagi: request gagal, `catch` mengisi `error`, lalu halaman menampilkan pesan setelah `finally` mengubah `loading` menjadi `false`. Nyalakan kembali backend sebelum melanjutkan.
 
 ## 6. POST: form mengirim JSON, parent menambah respons
 
@@ -419,7 +416,7 @@ export async function createTask(input: CreateTaskInput): Promise<Task> {
 }
 ```
 
-`method: "POST"` memilih operasi buat. Header `Content-Type` memberi tahu NestJS bahwa body adalah JSON. `JSON.stringify(input)` mengubah objek JavaScript menjadi teks JSON. Respons `201` berisi task yang **sudah diberi ID dan tanggal oleh server**; respons itulah yang ditambahkan ke state, bukan objek buatan browser.
+Pada fungsi ini, `method: "POST"` memilih route create di `TasksController`. Header `Content-Type: application/json` membuat body dibaca sebagai JSON oleh NestJS. `JSON.stringify(input)` mengubah object TypeScript menjadi teks request body. `response.ok` perlu diperiksa karena `fetch` tetap resolve saat server membalas `400`; hanya error jaringan yang otomatis membuat Promise reject. Jika sukses, `response.json()` membaca Task hasil database, termasuk `id`, `completed`, dan timestamp. Object dari respons inilah yang dipakai untuk memperbarui daftar agar state mengikuti nilai yang benar-benar disimpan server.
 
 ### 6b. Buat `TaskForm` yang hanya mengurus input form
 
@@ -492,14 +489,15 @@ export function TaskForm({ onCreated }: TaskFormProps) {
 }
 ```
 
-**Bedah alur form:**
+**Baca `TaskForm` sesuai urutan submit:**
 
 - `TaskFormProps` adalah kontrak antara anak dan induk. Anak menerima callback `onCreated`; ia tidak mengubah array `tasks` milik halaman secara langsung.
 - `title`/`description` adalah state lokal form. Tiap ketikan masuk melalui `onChange`, setter, render ulang, lalu `value` terbaru.
-- `submitting` mencegah submit berulang selama request berlangsung dan memberi teks tombol yang jelas.
+- `event.preventDefault()` menahan submit HTML bawaan. `title.trim()` membuang spasi di awal/akhir sebelum validasi lokal dan POST. `if (!cleanTitle || submitting)` menghentikan request untuk judul kosong dan klik berulang saat request belum selesai.
+- `submitting` menonaktifkan tombol selama request berlangsung; `finally` mengembalikannya ke `false` pada jalur sukses maupun gagal.
 - `required`/`maxLength` membantu pengguna sebelum request. DTO backend tetap memvalidasi input karena browser bisa dilewati dengan `curl`.
-- `await createTask(...)` menunggu task **yang benar-benar tersimpan**. Baru setelah berhasil, `onCreated(newTask)` memberi tahu parent dan input dikosongkan. Jika gagal, data form tetap ada agar bisa dicoba lagi.
-- `try/catch/finally` memisahkan keberhasilan, kegagalan, dan pembersihan status loading tombol. Versi checkout saat ini belum menampilkan error atau status submit; bagian ini merupakan perapian untuk contoh workshop.
+- `await createTask(...)` menunggu POST dan parsing respons. Setelah Task dari server tersedia, `await onCreated(newTask)` memanggil callback halaman. Input dikosongkan hanya pada jalur sukses; saat request gagal, nilai input tetap ada untuk dicoba lagi.
+- `catch` mengisi `formError` untuk dirender lewat elemen `role="alert"`. Versi checkout saat ini belum menampilkan error atau status submit; dua state ini ditambahkan pada acuan workshop agar kegagalan request terlihat.
 
 Di `TasksPage`, tambahkan `import { TaskForm } from "@/features/tasks/components/task-form";` di bagian atas. Buat callback untuk memperbarui array dan tampilkan form sebelum daftar:
 
@@ -512,9 +510,9 @@ async function handleCreateTask(newTask: Task) {
 <TaskForm onCreated={handleCreateTask} />
 ```
 
-Alur data: `TaskForm` → `POST` → task baru dari server → `onCreated` → `TasksPage.setTasks` → daftar render ulang.
+`TaskForm` tidak memiliki array daftar. `onCreated` adalah props yang menunjuk `handleCreateTask` di `TasksPage`. Setelah POST mengembalikan Task baru, callback itu memanggil `setTasks((currentTasks) => [...currentTasks, newTask])`. React merender ulang daftar dengan Task hasil server, sehingga ID dan nilai default berasal dari database.
 
-**Checkpoint 6:** isi judul/deskripsi, kirim, lalu lihat **satu** `POST /tasks` berstatus `201` di Network tab. Kartu baru muncul dan tetap ada setelah refresh. Coba matikan backend lalu submit: form mempertahankan isinya dan menampilkan error.
+**Verifikasi langkah 6:** isi judul dan deskripsi, kirim form, lalu periksa satu `POST /tasks` berstatus `201` pada Network tab. Respons berisi Task baru dengan ID dari database; kartu dengan ID itu muncul dan tetap ada setelah refresh. Ketika backend dihentikan lalu form dikirim lagi, request gagal, input tetap terisi, dan `formError` tampil.
 
 ## 7. PATCH: ubah status dengan satu request
 
@@ -571,11 +569,11 @@ Sementara sebelum komponen `TaskItem` dibuat, **ganti** `<span>` status biasa da
 
 Tampilkan `{actionError && <p role="alert">{actionError}</p>}` di atas daftar.
 
-**Bedah alur:** `!task.completed` membalik status saat ini. Backend mengembalikan objek terbaru. `map` mempertahankan urutan daftar dan mengganti hanya objek dengan ID yang sama. Jika request gagal, `setTasks` tidak dipanggil, sehingga tampilan tidak berpura-pura bahwa database berubah. `void` pada event handler menandai bahwa event React tidak menunggu promise; handler sendiri sudah menangani error.
+**Baca PATCH dari klik sampai render ulang:** tombol mengirim object `task` yang sedang dirender ke `handleToggle`. Ekspresi `!task.completed` membentuk nilai boolean berikutnya, lalu `updateTask(task.id, { completed: ... })` mengirim PATCH. Service backend menyimpan perubahan dan mengembalikan Task terbaru. `setTasks(...map...)` membuat array baru: item dengan `id` yang sama diganti oleh `updatedTask`, item lain tetap. Jika request gagal, eksekusi masuk `catch` dan `setTasks` tidak dijalankan; UI tetap menampilkan nilai sebelumnya dan `actionError` memberi informasi kegagalan. `void` pada callback klik menyatakan bahwa React tidak menunggu Promise handler, sementara `try/catch` di dalam handler tetap menangani error.
 
 **Perbedaan penting dari checkout saat ini:** `frontend/src/app/tasks/page.tsx` sekarang melakukan `fetch` PATCH langsung ke URL yang ditulis keras, **lalu** memanggil `updateTask()` yang melakukan PATCH kedua. Satu klik menghasilkan dua request. Pada tahap ini, gunakan **hanya** `updateTask()` di atas. Ini sekaligus memastikan semua URL API berasal dari satu tempat, `NEXT_PUBLIC_API_URL`.
 
-**Checkpoint 7:** klik satu task sekali dan lihat **satu PATCH per klik** di Network tab. Responsnya berisi `completed` terbaru. Refresh: status tetap sama, menandakan perubahan tersimpan di database. Dua GET awal saat development tidak boleh disamakan dengan dua PATCH untuk satu klik.
+**Verifikasi langkah 7:** klik status satu Task sekali dan periksa satu PATCH pada Network tab. Request body berisi `completed` sebagai boolean; respons berisi nilai terbaru yang dipakai `setTasks`. Setelah refresh, status tetap sama karena GET membaca perubahan dari PostgreSQL. Pada development, dua GET awal akibat Strict Mode merupakan kejadian berbeda dari dua PATCH untuk satu klik.
 
 ## 8. DELETE: hapus data dan pahami event bubbling
 
@@ -623,11 +621,11 @@ Tambahkan tombol Delete di tiap task:
 </button>
 ```
 
-**Bedah alur:** `confirm` mencegah penghapusan karena salah klik. `await deleteTask` harus selesai **sebelum** task dibuang dari UI. `filter` membuat array baru yang berisi semua task kecuali ID target. Jika pengguna memilih Cancel atau request gagal, daftar tidak berubah.
+**Baca DELETE sesuai urutan eksekusi:** `window.confirm(...)` meminta keputusan pengguna sebelum request dikirim. Jika pengguna memilih Cancel, `return` menghentikan handler, sehingga tidak ada DELETE. Setelah konfirmasi, `await deleteTask(task.id)` menunggu respons sukses dari backend. Baru kemudian `setTasks(...filter...)` membuat array baru tanpa Task yang ID-nya dihapus. Jika request gagal, kode masuk `catch`, `setTasks` tidak dipanggil, dan `actionError` ditampilkan. Urutan ini membuat daftar tetap sesuai dengan data server setelah aksi selesai.
 
 Pada contoh tahap ini, tombol status dan Delete adalah dua tombol terpisah sehingga klik Delete tidak memicu toggle. Pada struktur komponen checkout, **seluruh kartu** menjadi area klik untuk toggle. Tombol Delete berada di dalam kartu. Event klik akan “naik” ke parent (`event bubbling`), sehingga `TaskItem` perlu `event.stopPropagation()`; lihat tahap 9.
 
-**Checkpoint 8:** pilih Cancel: tidak ada request DELETE. Pilih OK: terlihat **satu** DELETE dan task hilang. Refresh: task tetap hilang. Tanyakan mengapa `filter` dilakukan setelah respons sukses, bukan sebelum request.
+**Verifikasi langkah 8:** pilih Cancel dan pastikan Network tab tidak menampilkan DELETE. Pilih OK dan pastikan ada satu DELETE yang sukses; Task hilang dari daftar dan tetap tidak ada setelah refresh. Jika backend dimatikan sebelum DELETE, pesan error muncul dan item tetap terlihat karena `filter` hanya dijalankan sesudah respons sukses.
 
 ## 9. Pisahkan komponen sesuai struktur proyek
 
@@ -869,9 +867,9 @@ export default function TasksPage() {
 - `handleToggle` dan `handleDelete` melakukan request lalu mengubah state **setelah respons sukses**. Keduanya menangkap error agar klik gagal tidak menghasilkan promise yang tidak ditangani.
 - `TaskView` menerima nilai dan callback. Dengan cara ini, perubahan API tetap di halaman/API helper, sedangkan tampilan kartu tetap sederhana.
 
-**Jejak props yang bisa digambar di papan:** `TasksPage.tasks` → `TaskView.tasks` → `TaskItem.task`; kemudian klik di `TaskItem` → callback `handleToggle` dari `TasksPage` → PATCH → `setTasks` → props baru turun lagi.
+**Alur props dan callback:** `TasksPage` menyimpan array `tasks`, lalu mengirimnya sebagai props ke `TaskView`. Saat `TaskView` menjalankan `tasks.map`, setiap object Task dikirim sebagai props `task` ke `TaskItem`. Klik pada item memanggil callback `handleToggle` yang berasal dari `TasksPage`. Setelah PATCH sukses, `TasksPage` menjalankan `setTasks`, React merender ulang `TaskView`, dan `TaskItem` menerima props Task yang sudah diperbarui. Alur ini bisa ditelusuri langsung dari deklarasi props dan pemanggilan callback di tiga file.
 
-**Checkpoint 9:** setelah pemisahan file, GET/POST/PATCH/DELETE tetap berjalan. Tunjuk `TaskForm` dan `TaskItem`: keduanya tidak pernah memanggil `setTasks` milik parent secara langsung.
+**Verifikasi langkah 9:** setelah file dipisah, ulangi GET, POST, PATCH, dan DELETE. Respons dan tampilan harus sama dengan langkah 8. Buka `TaskForm` serta `TaskItem`: keduanya memanggil callback melalui props, sedangkan `setTasks` tetap berada di `TasksPage`.
 
 ## 10. Acuan akhir file API dan perbedaan dengan checkout
 
@@ -919,7 +917,7 @@ export async function deleteTask(id: number): Promise<void> {
 }
 ```
 
-Perbandingan yang perlu disampaikan dengan jujur saat menunjukkan checkout utama:
+Perbandingan antara checkout utama dan kode akhir yang dibangun selama workshop:
 
 | Di checkout saat ini | Dalam acuan akhir workshop | Alasan |
 | --- | --- | --- |
@@ -928,9 +926,9 @@ Perbandingan yang perlu disampaikan dengan jujur saat menunjukkan checkout utama
 | Error saat POST/PATCH/DELETE belum ditampilkan ke pengguna. | Form dan halaman menampilkan pesan sederhana. | Peserta dapat membedakan request gagal dari aksi sukses. |
 | Daftar kosong hanya berupa `<ul>` kosong. | Ada teks “Belum ada task”. | Empty state berbeda dari loading/error. |
 
-Ini adalah **perbaikan dalam contoh pembelajaran**, bukan klaim bahwa source code checkout sudah berubah. Materi Day 3 nanti mengganti alur task lagi untuk menambahkan token dan kepemilikan user.
+Tabel ini juga menjelaskan mengapa hasil live coding dapat berbeda dari checkout utama walaupun keduanya memakai struktur folder dan kontrak API yang sama. Perubahan pada contoh workshop hanya berada dalam potongan kode panduan sampai peserta menerapkannya. Day 3 menambahkan token dan pembatasan Task berdasarkan user di atas alur CRUD ini.
 
-## 11. Uji alur end-to-end dan pertanyaan untuk peserta
+## 11. Uji alur end-to-end
 
 Jalankan kedua aplikasi. Dari `frontend/` jalankan pemeriksaan kode:
 
@@ -952,13 +950,9 @@ Ketiga perintah itu memeriksa lint, tipe, dan build; **bukan** bukti bahwa datab
 | Refresh lagi | Hasil tambah/ubah/hapus tetap | GET menunjukkan data yang sudah tersimpan. |
 | Backend berhenti | Pesan error GET atau aksi | Request gagal; perubahan gagal tidak dianggap sukses. |
 
-**Pertanyaan penutup:**
+Setelah uji, telusuri satu Task dari POST hingga DELETE dengan data yang sama. Respons POST menjadi sumber `id` dan nilai default di state. PATCH mengirim `completed` sebagai boolean lalu mengganti satu object berdasarkan ID melalui `map`; DELETE menghapus object itu dari array melalui `filter` setelah respons sukses. Pada refresh berikutnya, GET membaca keadaan terbaru dari PostgreSQL. Gunakan Network tab untuk menunjukkan bahwa React state mengikuti respons server, bukan menggantikan penyimpanan database.
 
-1. “Mengapa setelah `POST` kita menambahkan objek dari **respons server**, bukan membuat sendiri ID di browser?” Karena server/database yang menentukan ID dan nilai final.
-2. “Mengapa `setTasks` memakai `map` untuk PATCH, `filter` untuk DELETE, dan spread array untuk POST?” Karena masing-masing membuat array baru sesuai perubahan yang diperlukan, tanpa memutasi state lama.
-3. “Apa bedanya `loading` dan daftar kosong?” Loading berarti hasil GET belum diketahui; array kosong setelah sukses berarti memang belum ada task.
-4. “Mengapa `NEXT_PUBLIC_API_URL` boleh ada di browser tetapi `DATABASE_URL` tidak?” Browser perlu alamat API; koneksi dan kredensial database hanya milik backend.
-5. “Apakah CORS membuat task aman untuk tiap pengguna?” Belum. Day 3 menambahkan identitas dan filter user di backend.
+Bedakan pula `loading` dari empty state: saat `loading=true`, hasil GET belum diketahui; array kosong setelah GET `200` berarti database memang belum mengembalikan Task. `NEXT_PUBLIC_API_URL` boleh dipakai browser karena berisi alamat API, sedangkan `DATABASE_URL` dan kredensial PostgreSQL hanya dipakai backend. CORS menentukan apakah browser dapat mengirim request lintas origin; pembatasan Task berdasarkan user baru ditambahkan pada Day 3 melalui authentication dan filter query backend.
 
 ### Masalah yang sering muncul
 
@@ -971,7 +965,7 @@ Ketiga perintah itu memeriksa lint, tipe, dan build; **bukan** bukti bahwa datab
 | Dua PATCH untuk satu klik | Periksa apakah `handleToggle` masih mempunyai `fetch(...)` langsung **sekaligus** `updateTask(...)`; sisakan satu. |
 | Task hilang setelah refresh | Apakah tadi hanya memakai data/state lokal tahap 2–3? Periksa POST sukses dan respons GET setelah refresh. |
 
-**Jembatan ke Day 3:** saat ini browser boleh meminta seluruh task tanpa identitas. Berikutnya peserta akan membuat register/login, mengirim JWT pada request, dan meminta NestJS menyaring task berdasarkan user yang sudah diverifikasi. Panduan Day 3 berangkat dari checkout utama sebelum perapian Day 2 ini; jika peserta meneruskan hasil latihan, langkah Day 3 yang mengulang penanganan error form atau penghapusan PATCH ganda cukup dipakai untuk menambahkan bagian auth-nya. Kontrak props contoh akhir Day 2 sudah dibuat cocok dengan halaman pengganti Day 3.
+Pada akhir Day 2, browser masih dapat meminta seluruh Task tanpa identitas. Day 3 menambahkan register, login, JWT pada request, dan filter Task berdasarkan ID user yang diverifikasi NestJS. Panduan Day 3 berangkat dari checkout utama sebelum perapian Day 2 ini. Jika peserta meneruskan hasil latihannya, bagian Day 3 yang kembali membahas error form atau PATCH ganda dapat dibaca sebagai pemeriksaan terhadap kode yang sudah dibuat; fokus perubahan berikutnya adalah authentication dan ownership. Kontrak props contoh akhir Day 2 sudah cocok dengan halaman pengganti Day 3.
 
 ## Referensi untuk fasilitator
 
