@@ -1,10 +1,10 @@
 # Day 3 Workshop — Authentication, JWT Guard, dan User-Owned Tasks
 
-> Dokumen ini adalah acuan mengajar berdasarkan codebase saat ini. Backend Day 1 sudah menyediakan CRUD Task; frontend Day 2 sudah memanggil API tersebut. Authentication dan relasi pemilik task **belum diimplementasikan** di repository. Potongan kode di bawah ditambahkan bertahap. Jika sebuah langkah meminta mengganti isi file, versi sebelumnya diganti, bukan digabung dengan versi baru.
+> Dokumen ini adalah acuan mengajar dari kondisi akhir Day 2 menuju implementasi Day 3 yang kini ada di repository. Ikuti potongan kode secara bertahap saat mengajar. Jika sebuah langkah meminta mengganti isi file, versi sebelumnya diganti, bukan digabung dengan versi baru.
 
 ## Target implementasi
 
-Saat ini `GET /tasks` memanggil `findMany()` tanpa filter. API mengembalikan task yang sama kepada setiap pemanggil. Day 3 menambahkan model `User`, register dan login, verifikasi JWT melalui `JwtAuthGuard`, serta filter `userId` pada semua operasi Task.
+Pada titik awal Day 2, `GET /tasks` memanggil `findMany()` tanpa filter. Day 3 menambahkan model `User`, register dan login, verifikasi JWT melalui `JwtAuthGuard`, filter `userId` pada semua operasi Task, serta Proxy Next.js untuk redirect awal dari `/tasks` ke `/login`.
 
 | Proses | Endpoint | Hasil akhir |
 | --- | --- | --- |
@@ -12,8 +12,9 @@ Saat ini `GET /tasks` memanggil `findMany()` tanpa filter. API mengembalikan tas
 | Login | `POST /auth/login` | `accessToken` dan data user publik. |
 | Profil | `GET /auth/me` | `401` tanpa JWT valid; `200` dengan JWT valid. |
 | CRUD Task | `/tasks` dan `/tasks/:id` | JWT wajib; query dibatasi oleh `userId` dari token yang diverifikasi. |
+| Halaman Task | `/tasks` di Next.js | Tanpa cookie token, Proxy mengarahkan ke `/login` sebelum halaman dimuat. |
 
-Urutan implementasinya: **model User → register dan hash password → login dan JWT → guard → relasi Task–User → filter query Task → integrasi Next.js → uji dua akun**. Selesaikan dan uji kontrak backend sebelum mengubah request frontend. Dengan begitu, kegagalan `401` atau `404` dapat ditelusuri ke lapisan yang tepat.
+Urutan implementasinya: **model User → register dan hash password → login dan JWT → guard → relasi Task–User → filter query Task → integrasi Next.js → Proxy → uji dua akun**. Selesaikan dan uji kontrak backend sebelum mengubah request frontend. Dengan begitu, kegagalan `401` atau `404` dapat ditelusuri ke lapisan yang tepat.
 
 Istilah yang dipakai sepanjang materi:
 
@@ -21,7 +22,8 @@ Istilah yang dipakai sepanjang materi:
 - **Authorization** menentukan apakah user terautentikasi boleh mengakses sebuah Task. Dalam implementasi ini, `TasksService` selalu memakai `userId` dari `request.user` pada query Prisma.
 - **Password hash** adalah nilai yang dihasilkan `bcrypt.hash(password)` dan disimpan sebagai `passwordHash`. Login memakai `bcrypt.compare(password, passwordHash)`.
 - **JWT** berisi klaim `sub` (ID user) dan signature. `JwtAuthGuard` memverifikasi signature serta masa berlaku token sebelum mengisi `request.user`.
-- **`sessionStorage`** dipakai frontend latihan untuk menyimpan access token pada tab browser. Ini bukan server-side session.
+- **Cookie token** dipakai frontend latihan agar token dapat dibaca browser dan keberadaannya dapat diperiksa Proxy Next.js. Cookie ini dibuat oleh JavaScript dan bukan cookie `HttpOnly`.
+- **Proxy** adalah nama Middleware pada Next.js 16. Ia berjalan sebelum request halaman selesai; pengecekan cookie di sini hanya mempercepat redirect, sedangkan guard backend memverifikasi JWT dan kepemilikan task.
 
 Contoh data yang digunakan pada pengujian: satu akun dengan `userId = 1`, satu akun lain dengan `userId = 2`, dan sebuah Task dengan `id = 12` serta `userId = 1`. Untuk akun kedua, filter `{ id: 12, userId: 2 }` tidak menemukan Task. Angka ini hanya contoh untuk membaca query; ID nyata tetap mengikuti respons database.
 
@@ -1069,7 +1071,7 @@ Tautan `/login` baru berfungsi setelah halaman login dibuat pada langkah 8. Sebe
 
 ## 8. Frontend tahap kedua: login dan simpan access token
 
-**Tujuan langkah ini:** setelah kredensial diverifikasi backend, frontend menerima access token dan menyimpannya untuk request protected berikutnya. Pada latihan ini, token disimpan di `sessionStorage` browser: nilainya tersedia saat halaman di-refresh pada tab yang sama dan umumnya terhapus ketika tab ditutup. `sessionStorage` di sini adalah penyimpanan browser untuk token, bukan sesi pada server.
+**Tujuan langkah ini:** setelah kredensial diverifikasi backend, frontend menerima access token dan menyimpannya untuk request protected berikutnya. Pada latihan ini, token disimpan dalam cookie browser supaya Proxy Next.js pada langkah 9f dapat membaca keberadaannya ketika `/tasks` diminta. Cookie ini berlaku untuk host frontend dan path `/`, terbaca di tab lain pada browser yang sama, dan biasanya hilang ketika sesi browser berakhir. Cookie ini bukan sesi server dan bukan bukti token valid.
 
 ### 8a. Tambahkan request login ke API auth
 
@@ -1101,22 +1103,38 @@ export async function login(input: Credentials): Promise<LoginResult> {
 Buat `frontend/src/features/auth/session.ts`:
 
 ```ts
-const TOKEN_KEY = "workshop_access_token";
+export const TOKEN_KEY = "workshop_access_token";
 
 export function saveToken(token: string) {
-  window.sessionStorage.setItem(TOKEN_KEY, token);
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${TOKEN_KEY}=${token}; Path=/; SameSite=Lax${secure}`;
 }
 
 export function getToken(): string | null {
-  return window.sessionStorage.getItem(TOKEN_KEY);
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${TOKEN_KEY}=`));
+  return cookie?.slice(TOKEN_KEY.length + 1) ?? null;
 }
 
 export function clearToken() {
-  window.sessionStorage.removeItem(TOKEN_KEY);
+  document.cookie = `${TOKEN_KEY}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 ```
 
-**Penjelasan tiap fungsi:** `TOKEN_KEY` adalah nama key pada storage, bukan secret. `saveToken(token)` menyimpan nilai dari respons login; `getToken()` membacanya ketika request protected akan dibuat; `clearToken()` menghapusnya saat logout atau respons `401`. `window.sessionStorage` hanya tersedia di browser, jadi fungsi ini dipanggil dari event handler atau effect pada Client Component, bukan saat render Server Component.
+**Baca perlahan dari atas ke bawah:**
+
+| Kode | Yang terjadi |
+| --- | --- |
+| `TOKEN_KEY` | Nama cookie. Diekspor agar `proxy.ts` membaca nama yang sama; nilainya bukan JWT secret. |
+| `window.location.protocol === "https:"` | Saat situs memakai HTTPS, tambahkan atribut `Secure`. Pada `http://localhost`, atribut itu tidak dipasang agar latihan lokal tetap berjalan. |
+| `document.cookie = ...` pada `saveToken` | Browser menyimpan JWT dari respons login sebagai cookie sesi. `Path=/` membuatnya tersedia saat membuka `/tasks`; `SameSite=Lax` membatasi pengiriman dalam konteks lintas situs. |
+| `document.cookie.split("; ")` | Browser memberi daftar cookie sebagai string. Kode memisahkannya menjadi item. |
+| `.find(...)` | Cari item yang namanya tepat `workshop_access_token`. Cookie lain tidak dipakai. |
+| `.slice(...) ?? null` | Ambil nilai setelah `nama=`. Jika cookie tidak ada, kembalikan `null`. |
+| `Max-Age=0` pada `clearToken` | Hapus cookie yang sama saat logout atau saat backend mengembalikan `401`. |
+
+Fungsi ini dijalankan di browser dari handler atau effect, bukan saat Server Component dirender. Proxy nanti membaca cookie dari **request** memakai `request.cookies`, bukan memanggil `getToken()`. JWT berbentuk karakter yang aman untuk nilai cookie; browser masih dapat membacanya karena cookie dibuat dengan JavaScript.
 
 **Urutan implementasi halaman login:** mulai dari form register. Ubah judul menjadi Login, gunakan `autoComplete="current-password"`, lalu pertahankan pola `useState` untuk `email`, `password`, `error`, dan `submitting`. Pada submit, fokus dulu pada tiga baris berikut:
 
@@ -1201,13 +1219,13 @@ export default function LoginPage() {
 
 **Alur submit:** `onSubmit` memanggil `handleSubmit`, lalu `event.preventDefault()` mencegah reload form. `setSubmitting(true)` menonaktifkan tombol selama request. `await login({ email, password })` menunggu respons backend; hanya pada jalur sukses `saveToken(result.accessToken)` dijalankan, kemudian `router.replace("/tasks")` melakukan navigasi tanpa menambahkan halaman login ke riwayat. Pada App Router, `useRouter` berasal dari `next/navigation`. Jika login gagal, `catch` menyimpan pesan error dalam React state. `finally` mengembalikan `submitting` menjadi `false`.
 
-**Bedakan React state dan browser storage:** `password` serta `submitting` adalah React state milik komponen login. Nilainya hilang ketika komponen tidak lagi dirender. Access token yang disimpan di `sessionStorage` masih dapat dibaca setelah navigasi atau refresh pada tab yang sama.
+**Bedakan React state dan cookie browser:** `password` serta `submitting` adalah React state milik komponen login. Nilainya hilang ketika komponen tidak lagi dirender. Cookie token tetap tersedia setelah navigasi atau refresh dan dibagikan antar-tab pada origin frontend yang sama.
 
-**Checkpoint 8:** hapus item `workshop_access_token` lama dari Session Storage sebelum menguji password salah agar pengamatan tidak terpengaruh token dari login sebelumnya. Password salah menampilkan error dan tidak membuat item token baru. Password benar menghasilkan item `workshop_access_token` pada Session Storage. Hindari menyalin access token yang aktif ke chat, screenshot publik, atau repository.
+**Checkpoint 8:** jika pernah memakai versi Day 3 sebelumnya, hapus token lama dari Session Storage dan lakukan login ulang; kode baru membaca cookie. Sebelum menguji password salah, logout atau hapus cookie `workshop_access_token` di DevTools agar token lama tidak memengaruhi hasil. Password salah menampilkan error dan tidak membuat cookie baru. Password benar menghasilkan cookie `workshop_access_token` pada host frontend. Hindari menyalin access token yang aktif ke chat, screenshot publik, atau repository.
 
 Pada titik ini login sudah berhasil, tetapi request `/tasks` belum menyertakan header `Authorization` sampai langkah 9. Karena itu, setelah `router.replace("/tasks")`, request Task masih dapat menghasilkan `401`. Respons tersebut berasal dari request Task tanpa token, bukan dari request login.
 
-> **Catatan keamanan:** `sessionStorage` memudahkan pengamatan alur token pada latihan ini, tetapi JavaScript di halaman dapat membacanya. Untuk aplikasi produksi, pemilihan mekanisme penyimpanan token perlu mempertimbangkan ancaman XSS, CSRF, dan desain sesi. Bagian penutup membahas cookie `HttpOnly` serta batas logout tanpa revokasi token di server.
+> **Catatan keamanan:** cookie pada latihan ini dapat dibaca JavaScript, sehingga XSS juga dapat mencuri token. Proxy hanya memeriksa keberadaan cookie, bukan signature JWT. Backend tetap memverifikasi JWT pada setiap request. Untuk aplikasi produksi, pertimbangkan sesi yang dibuat server dengan cookie `HttpOnly` serta kebijakan CSRF dan revokasi yang sesuai.
 
 ## 9. Frontend tahap ketiga: kirim access token pada request protected
 
@@ -1292,7 +1310,7 @@ export async function getMe(): Promise<PublicUser> {
 }
 ```
 
-`/auth/me` memverifikasi kembali token yang dibaca dari `sessionStorage` setelah navigasi atau refresh. Endpoint ini mengembalikan `{ id, email }` untuk user pada token yang valid. Email di halaman Task nanti berasal dari respons endpoint ini; frontend tidak perlu membaca payload JWT.
+`/auth/me` memverifikasi kembali token yang dibaca dari cookie setelah navigasi atau refresh. Endpoint ini mengembalikan `{ id, email }` untuk user pada token yang valid. Email di halaman Task nanti berasal dari respons endpoint ini; frontend tidak perlu membaca payload JWT.
 
 ### 9c. Ganti seluruh API task agar memakai helper
 
@@ -1347,7 +1365,7 @@ export async function deleteTask(id: number): Promise<void> {
 
 `tasks.api.ts` tetap menentukan endpoint, method, body, dan cara membaca respons untuk tiap operasi Task. `authFetch` menambahkan token dan menangani `401` secara konsisten. Input create/update hanya memuat field Task; backend mengambil `userId` dari `request.user.id` setelah guard memverifikasi JWT. Tipe `Task` Day 2 tetap cukup untuk field yang dipakai UI, walaupun respons backend kini mempunyai `userId` tambahan.
 
-**Checkpoint sementara:** setelah mengganti file API, refresh `/tasks` dan periksa header `Authorization` pada GET `/tasks` di Network tab. Jika respons masih `401`, periksa token pada `sessionStorage`, format `Bearer`, serta `JWT_SECRET` yang dipakai backend untuk menandatangani dan memverifikasi JWT. Jika halaman masih memakai `handleToggle` dari checkout lama, tunggu perbaikan di langkah 9d sebelum menguji PATCH.
+**Checkpoint sementara:** setelah mengganti file API, refresh `/tasks` dan periksa header `Authorization` pada GET `/tasks` di Network tab. Jika respons masih `401`, periksa cookie token, format `Bearer`, serta `JWT_SECRET` yang dipakai backend untuk menandatangani dan memverifikasi JWT. Jika halaman masih memakai `handleToggle` dari checkout lama, tunggu perbaikan di langkah 9d sebelum menguji PATCH.
 
 ### 9d. Rapikan halaman Tasks dan satu request toggle
 
@@ -1360,7 +1378,7 @@ Checkout saat ini juga menambahkan jeda dua detik sebelum GET Task untuk menampi
 1. **Perbaiki toggle lebih dulu.** Pada `handleToggle`, hapus `fetch('http://localhost:3001/...')` langsung. Sisakan satu pemanggilan `updateTask()` dan pembaruan React state melalui `setTasks(...map...)`. Jika peserta memakai acuan akhir Day 2, perubahan ini sudah ada. Setelah login, klik satu Task dan pastikan Network tab menampilkan satu PATCH.
 2. **Tambahkan profil.** Import `getMe` dan tipe `PublicUser`; buat `const [user, setUser] = useState<PublicUser | null>(null)`. Pada `useEffect`, panggil `getMe()` sebelum `getTasks()`, lalu simpan respons melalui `setUser` dan `setTasks`. Tampilkan `{user.email}` di atas `TaskView`. Nilai email berasal dari endpoint backend, bukan dari payload JWT yang dibaca frontend.
 3. **Sesuaikan penanganan CRUD.** Handler create/toggle/delete masih memperbarui array Task seperti Day 2. Gunakan `try/catch` untuk PATCH dan DELETE, lalu tampilkan `actionError` jika request gagal. Variabel `active` dan cleanup pada effect mencegah respons lama mengubah React state setelah komponen tidak lagi aktif.
-4. **Tambahkan logout.** `clearToken()` menghapus access token dari `sessionStorage`; kosongkan `user` dan `tasks`; lalu `router.replace('/login')` mengarahkan browser. Jika `/tasks` dibuka lagi tanpa token, `authFetch` mengarahkan ke login dan guard backend menolak request tanpa token yang dikirim langsung ke API.
+4. **Tambahkan logout.** `clearToken()` menghapus cookie token; kosongkan `user` dan `tasks`; lalu `router.replace('/login')` mengarahkan browser. Jika `/tasks` dibuka lagi tanpa token, Proxy pada langkah 9f langsung mengarahkan ke login. Guard backend tetap menolak request tanpa token yang dikirim langsung ke API.
 
 Setelah perubahan bertahap tersebut, cocokkan halaman dengan acuan akhir berikut. Struktur `TasksPage -> TaskView -> TaskForm/TaskItem` tetap dipakai:
 
@@ -1564,6 +1582,66 @@ export function TaskForm({ onCreated }: TaskFormProps) {
 
 **Checkpoint 9:** login sebagai `user1@example.com`, lalu buat, ubah status, dan hapus Task sambil memeriksa Network tab. Request ke `/auth/me` dan `/tasks` membawa header `Authorization: Bearer ...`; satu klik toggle menghasilkan satu PATCH. Pada development dengan React Strict Mode, `useEffect` dapat memicu dua GET awal. Flag `active` mencegah respons lama mengubah state, tetapi tidak membatalkan request jaringan. Dua GET tersebut berbeda dari dua PATCH pada satu klik yang berasal dari implementasi `handleToggle` lama. Setelah logout, akses ulang `/tasks` dan periksa redirect ke `/login`. Guard dan filter backend tetap menjadi mekanisme yang membatasi akses data.
 
+### 9f. Redirect awal dengan Proxy Next.js (Middleware)
+
+**Mulai dari masalah yang terlihat.** Sebelum langkah ini, `authFetch()` memang mengarahkan user tanpa token ke `/login`, tetapi `authFetch()` baru dipanggil oleh `useEffect` setelah halaman `/tasks` mulai dimuat. Jika token tidak ada, helper mengarahkan browser tanpa mengirim request `/auth/me` ke backend. Kita ingin browser menerima redirect **sebelum halaman `/tasks` dirender**.
+
+Pada Next.js 16, fitur yang dahulu bernama *Middleware* sekarang bernama **Proxy**. File yang dipakai adalah `frontend/src/proxy.ts`, sejajar dengan folder `app` di dalam `src`. Proxy menerima request halaman, dapat membaca cookie pada request itu, lalu memilih melanjutkan request atau mengirim redirect. Proxy tidak dapat membaca `window.sessionStorage` atau `document.cookie`: dua API tersebut hanya tersedia pada JavaScript browser. Itulah alasan langkah 8b menyimpan token dalam cookie; browser menyertakannya pada request ke Next.js.
+
+Kerjakan pelan-pelan dalam tiga putaran:
+
+1. **Amati perilaku lama.** Tanpa login, buka langsung `http://localhost:3000/tasks`. Sebelum Proxy ditambahkan, request halaman sempat berjalan; lalu `getMe()` memanggil `authFetch()`, yang mengarahkan browser ke `/login` ketika token tidak ada.
+2. **Selesaikan `session.ts` dari langkah 8b.** Login harus menyimpan cookie `workshop_access_token`. Logout dan respons `401` harus menghapus cookie yang sama. Jika sebelumnya ada token di Session Storage, login ulang karena kode baru tidak membacanya.
+3. **Tambahkan Proxy berikut.** Untuk melihat akibat tiap bagian saat mengajar, mulai dengan `matcher`, lalu pengecekan cookie dan redirect, lalu jalur `NextResponse.next()`.
+
+Buat `frontend/src/proxy.ts`:
+
+```ts
+import { NextResponse, type NextRequest } from "next/server";
+import { TOKEN_KEY } from "./features/auth/session";
+
+export function proxy(request: NextRequest) {
+  const token = request.cookies.get(TOKEN_KEY)?.value;
+
+  if (!token) {
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: "/tasks/:path*",
+};
+```
+
+**Penjelasan per baris, sesuai urutan request:**
+
+| Kode | Artinya |
+| --- | --- |
+| `import { NextResponse, type NextRequest } ...` | `NextRequest` adalah tipe request yang diterima Proxy; `NextResponse` menyediakan respons redirect atau lanjut. `type` hanya membantu TypeScript. |
+| `import { TOKEN_KEY } ...` | Memakai nama cookie yang sama dengan `saveToken()` saat login. Import ini tidak menjalankan `getToken()` yang khusus browser. |
+| `export function proxy(request: NextRequest)` | Next.js memanggil fungsi ini ketika sebuah request cocok dengan `matcher`. |
+| `request.cookies.get(TOKEN_KEY)?.value` | Baca nilai cookie dari request. `?.value` menghasilkan `undefined` jika cookie tidak ada. Proxy tidak membaca React state atau Session Storage. |
+| `if (!token)` | Jika cookie tidak ada atau kosong, user belum memiliki token yang dapat dikirim untuk halaman ini. |
+| `new URL("/login", request.url)` | Buat alamat `/login` pada origin yang sama dengan request; tidak perlu menulis `localhost:3000` secara tetap. |
+| `NextResponse.redirect(...)` | Kirim respons redirect ke browser; halaman `/tasks` tidak dilanjutkan pada request ini. |
+| `NextResponse.next()` | Cookie ada, jadi Next.js boleh melanjutkan request halaman. Baris ini **belum** menyatakan JWT valid. |
+| `matcher: "/tasks/:path*"` | Jalankan Proxy hanya untuk `/tasks` dan path di bawahnya. `/login`, `/register`, dan halaman utama tetap terbuka. |
+
+**Uji satu kondisi setiap kali:**
+
+| Kondisi | Hasil yang diamati |
+| --- | --- |
+| Tidak ada cookie, buka `/tasks` langsung atau klik tautan dari `/` | Redirect ke `/login` sebelum halaman Task dimuat. Di Network, request halaman `/tasks` mendapat redirect. |
+| Login berhasil, lalu buka atau refresh `/tasks` | Cookie ada; Proxy meneruskan request. `getMe()` dan `getTasks()` mengirim JWT melalui header `Authorization`, lalu backend memverifikasinya. |
+| Logout, lalu buka `/tasks` lagi | `clearToken()` menghapus cookie; Proxy mengarahkan kembali ke `/login`. |
+| Cookie ada tetapi JWT salah atau kedaluwarsa | Proxy hanya melihat keberadaan cookie. `JwtAuthGuard` mengembalikan `401`; `authFetch()` menghapus cookie dan mengarahkan ke `/login`. |
+
+Untuk memeriksa redirect tanpa membuka browser, jalankan `curl -i http://localhost:3000/tasks` saat tidak ada cookie. Respons halaman adalah `307` dengan header `Location: /login`. Request langsung ke API NestJS tanpa JWT tetap mendapat `401`; dua status ini berasal dari lapisan yang berbeda.
+
+**Batas tanggung jawab:** Proxy mempermudah navigasi, bukan memutuskan kepemilikan data. Cookie yang dibuat JavaScript bisa dibaca dan diubah dari browser; keberadaannya saja tidak membuktikan user telah login. `JwtAuthGuard` NestJS tetap memverifikasi signature dan masa berlaku JWT pada setiap request API. `TasksService` tetap membatasi query berdasarkan `userId`. Jangan mengganti guard backend dengan pemeriksaan cookie Proxy.
+
 ## 10. Uji dua akun dan jelaskan status HTTP
 
 Mulai dari API sebelum mencoba alur yang sama di dashboard. Gunakan dua akun yang dibuat pada langkah backend: `user1@example.com` dan `user2@example.com`. Jika database latihan sempat di-reset, register ulang kedua akun, lalu login untuk mendapatkan access token masing-masing. Simpan token hanya di variabel shell pada terminal latihan:
@@ -1652,7 +1730,7 @@ Request DELETE dengan token user 1 ada di bagian akhir agar task masih tersedia 
 
 Angka `1` dan `2` pada contoh query hanya ilustrasi. Nilai sebenarnya mengikuti `id` akun di respons register atau `/auth/me`; service menggunakan nilai dari `request.user`, bukan angka yang ditulis di frontend.
 
-**Uji di frontend:** login sebagai user 1 dan buat satu task. Logout, lalu login sebagai user 2; task user 1 tidak muncul. Login kembali sebagai user 1; task tersebut muncul lagi. Jika ingin membandingkan dua akun secara bersamaan, buka keduanya di profil browser terpisah karena `sessionStorage` berlaku per tab atau window pada origin yang sama. Hubungkan hasilnya ke dua bagian backend: guard menentukan apakah request boleh masuk, sedangkan filter `userId` menentukan task mana yang bisa diakses.
+**Uji di frontend:** login sebagai user 1 dan buat satu task. Logout, lalu login sebagai user 2; task user 1 tidak muncul. Login kembali sebagai user 1; task tersebut muncul lagi. Jika ingin membandingkan dua akun secara bersamaan, buka keduanya di profil browser terpisah karena cookie login dibagikan antar-tab pada host frontend yang sama. Hubungkan hasilnya ke dua bagian backend: guard menentukan apakah request boleh masuk, sedangkan filter `userId` menentukan task mana yang bisa diakses.
 
 Terakhir, periksa kode setelah semua potongan dipasang. Jalankan dari direktori masing-masing:
 
@@ -1773,7 +1851,7 @@ Implementasi workshop memusatkan pembelajaran pada alur HTTP, JWT, dan pembatasa
 
 | Yang dipakai di workshop | Yang perlu dipikirkan untuk aplikasi nyata |
 | --- | --- |
-| Token di `sessionStorage` | JavaScript di halaman dapat membacanya, sehingga XSS juga dapat mencurinya. Evaluasi cookie sesi `HttpOnly`, `Secure`, `SameSite` yang dibuat server atau pola BFF; cookie juga butuh perlindungan CSRF yang sesuai. |
+| Token dalam cookie yang ditulis JavaScript | JavaScript di halaman dapat membacanya, sehingga XSS juga dapat mencurinya. Evaluasi cookie sesi `HttpOnly` yang dibuat server atau pola BFF; pertimbangkan atribut `Secure`, `SameSite`, dan perlindungan CSRF yang sesuai. |
 | JWT berlaku satu jam dan logout hanya menghapus token lokal | Token yang sudah terbit masih valid sampai kedaluwarsa, kecuali server punya revokasi/rotasi sesi. |
 | Register dan login sederhana | Tambahkan HTTPS, rate limit login, dan kebijakan recovery akun. |
 | `User.email` unik + normalisasi lowercase | Tetapkan kebijakan perubahan email, verifikasi email, dan penanganan akun duplikat sesuai kebutuhan produk. |
@@ -1790,4 +1868,5 @@ Bahas poin ini setelah peserta berhasil menunjukkan hasil pengujian dua akun. De
 - [Prisma: relasi satu ke banyak](https://docs.prisma.io/docs/orm/prisma-schema/data-model/relations/one-to-many-relations)
 - [Prisma 7: generate setelah migrate dev](https://docs.prisma.io/docs/guides/upgrade-prisma-orm/v7)
 - [Next.js App Router: Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components)
+- [Next.js 16: Proxy (nama baru Middleware)](https://nextjs.org/docs/app/getting-started/proxy)
 - [Next.js App Router: autentikasi dan sesi](https://nextjs.org/docs/app/guides/authentication)
