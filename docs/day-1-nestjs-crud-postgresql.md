@@ -1,6 +1,6 @@
 # Day 1 Workshop — NestJS CRUD Task + PostgreSQL
 
-> Dokumen ini adalah acuan mengajar berdasarkan backend repository saat ini. `TasksModule`, DTO, `PrismaService`, migrasi awal, dan lima endpoint CRUD sudah tersedia pada checkout utama. Untuk live coding, kita menyusun ulang implementasinya dari route paling sederhana sampai ke query PostgreSQL. Setiap potongan sementara **menggantikan** versi sebelumnya pada tahap berikutnya; jangan menambahkan method dengan nama dan route yang sama dua kali. Day 1 berfokus pada backend. [Day 3](./day-3-auth-nextjs-nestjs.md) menambahkan authentication dan pembatasan task berdasarkan user.
+> Dokumen ini mengacu pada kode `day-1-checkpoint`. `TasksModule`, DTO, `PrismaService`, migrasi awal, dan lima endpoint CRUD sudah tersedia di tag tersebut. Untuk live coding, mulai dari branch `day-1-starter` dan susun implementasi dari route paling sederhana sampai query PostgreSQL. Setiap potongan sementara **menggantikan** versi sebelumnya pada tahap berikutnya; jangan menambahkan method dengan nama dan route yang sama dua kali. Rujukan "checkout saat ini/utama" di bawah berarti checkpoint Day 1, bukan `main` yang sudah memakai JWT. [Day 3](./day-3-auth-nextjs-nestjs.md) menambahkan authentication dan pembatasan task berdasarkan user.
 
 ## Hasil akhir dan urutan implementasi
 
@@ -38,24 +38,25 @@ Client <─HTTP response── TasksController <── TasksService <── Pris
 
 ### 0a. Pilih titik awal live coding
 
-Checkout utama sudah memuat implementasi Day 1. Untuk live coding dari awal tanpa mengubah implementasi acuan, siapkan **worktree terpisah** dari commit `945c575`. Perintah ini memerlukan clone Git yang memiliki commit tersebut. Jika materi dibagikan sebagai ZIP atau shallow clone tanpa commit itu, gunakan potongan tahap demi tahap sebagai demonstrasi dan bandingkan dengan checkout utama.
+Tag `day-1-checkpoint` sudah memuat implementasi Day 1. Untuk live coding dari awal tanpa mengubah implementasi acuan, siapkan **worktree terpisah** dari branch `day-1-starter` (commit `945c575`). Perintah ini memerlukan clone Git lengkap dengan branch workshop. Jika materi dibagikan sebagai ZIP, gunakan potongan tahap demi tahap sebagai demonstrasi dan bandingkan dengan tag checkpoint.
 
 ```bash
-# Jalankan dari root repository, sekali saja untuk persiapan fasilitator.
-git worktree add --detach ../task-management-day1-starter 945c575
+# Jalankan dari root repository pada main, sekali saja untuk persiapan fasilitator.
+git worktree add -b practice/day-1 ../task-management-day1-starter origin/day-1-starter
+cp backend/.env.example ../task-management-day1-starter/backend/.env
 cd ../task-management-day1-starter/backend
 pnpm install
 ```
 
-Commit `945c575` berisi kerangka Nest, model `Task`, dan migrasi SQL awal, tetapi belum memiliki `TasksModule` atau `PrismaService`. Peserta dapat menambahkan file sesuai urutan materi. Pada checkout utama, file-file itu sudah ada; gunakan untuk melihat hasil akhir tiap tahap.
+Commit `945c575` berisi kerangka Nest, model `Task`, dan migrasi SQL awal, tetapi belum memiliki `TasksModule` atau `PrismaService`. Peserta dapat menambahkan file sesuai urutan materi. Pada tag `day-1-checkpoint`, file-file itu sudah ada; gunakan untuk melihat hasil akhir tiap tahap.
 
-Commit awal **belum mempunyai frontend**, dan perubahan di worktree tidak otomatis berpindah ke checkout utama. Untuk melanjutkan hasil coding peserta ke Day 2/3, pindahkan pekerjaan itu ke branch yang akan dipakai sepanjang workshop. Jika tidak, gunakan checkout utama yang sudah memuat frontend dan CRUD final.
+Commit awal **belum mempunyai frontend**, dan perubahan di worktree tidak otomatis berpindah ke `main`. Untuk melanjutkan hasil coding peserta ke Day 2/3, pindahkan pekerjaan itu ke branch yang akan dipakai sepanjang workshop. Jika ingin mulai Day 2 dari kerangka Next.js yang sudah ada, gunakan `day-2-starter` sesuai [README utama](../README.md).
 
 Semua perintah `pnpm` dan `prisma` di materi ini dijalankan dari direktori **`backend/`**. Root repository tidak mempunyai `package.json` gabungan. Dependency NestJS, Prisma 7, `class-validator`, `class-transformer`, dan adapter PostgreSQL sudah tercantum di `backend/package.json`.
 
 ### 0b. Siapkan PostgreSQL latihan
 
-Repository **tidak** menyediakan Docker Compose atau template `.env`. Gunakan database PostgreSQL yang disiapkan panitia. Jika peserta mempunyai Docker dan memerlukan database lokal sendiri, opsi latihan berikut dapat dipakai:
+Repository **tidak** menyediakan Docker Compose. Template `backend/.env.example` tersedia pada `main` dan sudah disalin ke worktree pada langkah 0a; sesuaikan isinya dengan database PostgreSQL yang disiapkan panitia. Jika peserta mempunyai Docker dan memerlukan database lokal sendiri, opsi latihan berikut dapat dipakai:
 
 ```bash
 docker run -d --name task-day1-postgres \
@@ -99,7 +100,7 @@ Jika database panitia punya host/user/password berbeda, gunakan URL yang diberik
 | `backend/prisma/schema.prisma` | Bentuk model Task yang diinginkan. |
 | `backend/prisma/migrations/.../migration.sql` | SQL yang benar-benar membuat tabel. |
 | `backend/src/prisma/*` | Koneksi Prisma yang dapat di-inject ke module lain. |
-| `backend/prisma/seed.ts` | Data contoh opsional; versi saat ini menghapus semua task dahulu. |
+| `backend/prisma/seed.ts` | Data contoh opsional pada checkpoint Day 1; seed itu menghapus semua task dahulu. |
 
 Gunakan tabel ini saat peserta membuka repository: route didefinisikan di controller, aturan body di DTO, dan operasi database di service melalui `PrismaService`. Ketiga file tersebut akan ditulis pada waktu yang berbeda sepanjang materi.
 
@@ -914,7 +915,7 @@ export class TasksService {
 
 ## 12. Seed data contoh: opsional dan menghapus task yang ada
 
-Checkout `main` sudah mempunyai `backend/prisma/seed.ts`. Ini **bukan** langkah wajib untuk CRUD; pakai hanya jika fasilitator memang ingin mengisi tiga task contoh pada database latihan. Jika memakai worktree dari commit awal, buat file tersebut pada tahap ini dan pasang `tsx` yang digunakan oleh konfigurasi seed:
+Tag `day-1-checkpoint` sudah mempunyai `backend/prisma/seed.ts`. Ini **bukan** langkah wajib untuk CRUD; pakai hanya jika fasilitator memang ingin mengisi tiga task contoh pada database latihan. Jika memakai worktree dari commit awal, buat file tersebut pada tahap ini dan pasang `tsx` yang digunakan oleh konfigurasi seed:
 
 ```bash
 # Hanya untuk worktree awal yang belum memiliki tsx.

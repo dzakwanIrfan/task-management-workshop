@@ -1,6 +1,8 @@
 # Day 3 Workshop — Authentication, JWT Guard, dan User-Owned Tasks
 
-> Dokumen ini adalah acuan mengajar dari kondisi akhir Day 2 menuju implementasi Day 3 yang kini ada di repository. Ikuti potongan kode secara bertahap saat mengajar. Jika sebuah langkah meminta mengganti isi file, versi sebelumnya diganti, bukan digabung dengan versi baru.
+> Dokumen ini mengajar dari branch `day-3-starter` (kode Day 2 sebelum authentication) menuju tag `day-3-checkpoint`. Ikuti potongan kode secara bertahap saat mengajar. Jika sebuah langkah meminta mengganti isi file, versi sebelumnya diganti, bukan digabung dengan versi baru. Rujukan "checkout saat ini" di bawah berarti branch starter itu; `main`/`final-reference` sudah memuat implementasi Day 3 dan seed yang membuat Task milik user.
+
+Jalankan perintah dalam materi dari root **worktree latihan Day 3** atau direktori `backend/` dan `frontend/` di dalamnya, sesuai yang ditunjukkan tiap langkah. Jangan menjalankan langkah migrasi Day 3 terhadap database yang masih berisi Task tanpa pemilik.
 
 ## Target implementasi
 

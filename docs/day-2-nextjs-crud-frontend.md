@@ -1,6 +1,6 @@
 # Day 2 Workshop — Next.js CRUD Frontend untuk Task
 
-Materi ini mengikuti struktur frontend yang ada di repository. Targetnya adalah halaman `/tasks` yang membaca data dari API NestJS dan menyediakan aksi tambah, ubah status, dan hapus task. Kita mulai dari JSX statis agar peserta memahami render daftar, lalu menambah state dan event handler, kemudian menghubungkan setiap aksi ke API. Pemisahan ke `TaskForm`, `TaskItem`, dan `TaskView` dilakukan setelah alur CRUD dalam satu halaman dipahami.
+Materi ini mengikuti struktur frontend pada `day-2-checkpoint`, sebelum authentication. Untuk live coding, mulai dari `day-2-starter`; proyek Next.js sudah ada pada branch itu, lalu halaman `/tasks` ditulis ulang dari JSX statis sampai terhubung ke API NestJS. Pemisahan ke `TaskForm`, `TaskItem`, dan `TaskView` dilakukan setelah alur CRUD dalam satu halaman dipahami. Rujukan "checkout saat ini/utama" di bawah berarti checkpoint Day 2, bukan `main` yang sudah memakai JWT.
 
 **Cara memakai contoh kode:** langkah 1–3 adalah latihan sementara dengan data di browser. Pada langkah 5, kode lokal itu diganti ketika mulai memakai API. Potongan kode yang menyebut “tambahkan” disisipkan ke file pada langkah tersebut; potongan yang menyebut “ganti” menggantikan versi sebelumnya. Jangan menyimpan dua handler bernama sama. Kode lengkap pada langkah 9–10 adalah acuan hasil akhir, jadi tidak perlu ditempel ulang setelah peserta menyelesaikan langkah sebelumnya.
 
@@ -34,7 +34,7 @@ Hubungan dengan Day 1: NestJS sudah menyediakan endpoint dan PostgreSQL menyimpa
 
 ### 0a. Kenali file yang akan dipakai
 
-Pada checkout saat ini, `frontend/src/app/tasks/page.tsx`, `tasks.api.ts`, `TaskForm`, `TaskItem`, dan `TaskView` sudah ada. Jika ingin live coding dari tahap awal, siapkan branch latihan atau salinan kerja terpisah dan ganti isi `page.tsx` sesuai langkah 1. Kode yang ada di checkout dipakai sebagai acuan struktur akhir. Di akhir materi ada beberapa perbaikan kecil terhadap perilaku checkout saat ini; perbedaannya ditandai secara eksplisit.
+Pada `day-2-checkpoint`, `frontend/src/app/tasks/page.tsx`, `tasks.api.ts`, `TaskForm`, `TaskItem`, dan `TaskView` sudah ada. Di `day-2-starter`, proyek Next.js dan halaman awal sudah ada, tetapi file fitur belum lengkap. Ganti isi `page.tsx` sesuai langkah 1, lalu tambahkan file sesuai urutan materi. Kode di checkpoint dipakai sebagai acuan struktur; di akhir materi ada perbaikan perilaku checkpoint yang ditandai secara eksplisit.
 
 Folder yang perlu dibuka bersama peserta:
 
@@ -53,7 +53,7 @@ Proyek memakai **Next.js 16 App Router, React 19, TypeScript, Tailwind CSS 4, da
 
 ### 0b. Pastikan API Day 1 berjalan
 
-Gunakan backend dan database latihan yang disiapkan pada [Day 1](./day-1-nestjs-crud-postgresql.md). Di terminal pertama:
+Gunakan backend dan database latihan yang disiapkan pada [Day 1](./day-1-nestjs-crud-postgresql.md). Jalankan perintah berikut dari root **worktree latihan Day 2**, bukan repo `main`. Di terminal pertama:
 
 ```bash
 cd backend
@@ -69,7 +69,7 @@ curl -i http://localhost:3001/tasks
 
 Respons normal adalah status `200` dan JSON array seperti `[]` atau daftar task. Jika koneksi database gagal di sini, perbaiki backend/database dahulu. `GET /tasks` tanpa data **tetap sukses** dengan array kosong.
 
-Buat `frontend/.env` jika belum ada di salinan kerja peserta:
+Buat `frontend/.env` jika belum ada di salinan kerja peserta. Template `frontend/.env.example` tersedia di `main` (belum ada pada checkpoint historis):
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:3001
