@@ -1,15 +1,15 @@
-# Day 1 — Building REST API with NestJS & PostgreSQL
+# Day 1 — Membangun REST API dengan NestJS dan PostgreSQL
 
 ## Gambaran Umum Presentasi
 
-**Target durasi:** ±20–25 menit  
-**Batas maksimal:** <30 menit
+**Target durasi:** ±28–30 menit
+**Jumlah halaman:** 22. Delapan belas topik awal tetap berurutan; halaman persiapan, analogi NestJS, dan alur kerja Prisma disisipkan pada titik yang relevan.
 
 Presentasi ini **bukan sesi coding**. Tujuannya adalah membangun pemahaman dan mental model peserta sebelum masuk ke sesi live coding.
 
 **Acuan materi:** alur latihan di [`day-1-starter` → `day-1-checkpoint`](./day-1-nestjs-crud-postgresql.md). `backend/` pada `main` sudah memuat hasil Day 3: JWT, relasi `User`, dan pembatasan task berdasarkan `userId`. Untuk slide pembuka Day 1, pakai bentuk Task dan lima endpoint CRUD dari checkpoint Day 1; sebut authentication hanya sebagai kelanjutan Day 3. Jangan mengambil screenshot respons `/tasks` dari `main` tanpa login lalu menyebutnya hasil Day 1.
 
-**Cara memakai outline untuk membuat deck:** bagian *Isi Slide* dan *Visual* adalah bahan yang ditampilkan; bagian *Yang Disampaikan* menjadi speaker notes. Pilih satu pesan utama per slide agar 18 slide tetap muat dalam 20–25 menit. Contoh request/response di bawah adalah ilustrasi kontrak, bukan hasil uji runtime yang baru dijalankan.
+**Cara memakai outline untuk membuat deck:** bagian *Isi Slide* dan *Visual* adalah bahan yang ditampilkan; bagian *Yang Disampaikan* menjadi speaker notes. Satu halaman membawa satu pesan utama. Contoh Request/Response di bawah adalah ilustrasi kontrak, bukan hasil uji runtime yang baru dijalankan. Gunakan bahasa Indonesia yang sederhana untuk kalimat penjelas. Pertahankan nama konsep teknikal seperti Backend, Frontend, Request, Response, Module, Controller, Service, Provider, Dependency Injection, ValidationPipe, Prisma Schema, Prisma Migrate, Prisma Client, dan Data Access.
 
 Setelah presentasi selesai, peserta diharapkan memahami:
 
@@ -29,7 +29,7 @@ Setelah presentasi selesai, peserta diharapkan memahami:
 
 ## Bagian 1 — Konteks Workshop
 
-1. Building REST API with NestJS & PostgreSQL
+1. Membangun REST API dengan NestJS dan PostgreSQL
 2. Apa yang Akan Kita Bangun?
 3. Posisi Day 1 dalam Workshop
 
@@ -37,32 +37,36 @@ Setelah presentasi selesai, peserta diharapkan memahami:
 
 4. Memahami Posisi Backend
 5. Kenapa Menggunakan NestJS?
-6. Kenapa Saya Menggunakan NestJS di Project Nyata?
+6. Analogi Restoran untuk Module, Controller, dan Service
+7. Kenapa Saya Menggunakan NestJS di Project Nyata?
 
 ## Bagian 3 — Environment & Tools
 
-7. Tools yang Akan Digunakan
+8. Tools yang Akan Digunakan
+9. Preflight: Cek Environment
+10. Siapkan pnpm
 
 ## Bagian 4 — Fundamental Backend
 
-8. Apa Itu API?
-9. Anatomi HTTP Request
-10. CRUD dan HTTP Method
-11. HTTP Status Code
-12. Bagaimana NestJS Mengorganisasi Aplikasi?
-13. Alur Request di Aplikasi Kita
-14. Posisi Prisma dan PostgreSQL
-15. Kenapa Kita Membutuhkan Validation?
+11. Apa Itu API?
+12. Anatomi HTTP Request
+13. CRUD dan HTTP Method
+14. HTTP Status Code
+15. Bagaimana NestJS Mengorganisasi Aplikasi?
+16. Alur Request di Aplikasi Kita
+17. Posisi Prisma dan PostgreSQL
+18. Dari Model Task ke Query Prisma
+19. Kenapa Kita Membutuhkan Validation?
 
 ## Bagian 5 — Project Hari Ini
 
-16. Task Data Model
-17. Roadmap Live Coding
-18. Mental Model yang Perlu Diingat
+20. Task Data Model
+21. Roadmap Live Coding
+22. Mental Model yang Perlu Diingat
 
 ---
 
-# Slide 1 — Building REST API with NestJS & PostgreSQL
+# Slide 1 — Membangun REST API dengan NestJS dan PostgreSQL
 
 ## Tujuan Slide
 
@@ -70,9 +74,9 @@ Membuka sesi dan memberi konteks singkat mengenai topik Day 1.
 
 ## Isi Slide
 
-**Building REST API with NestJS & PostgreSQL**
+**Membangun REST API dengan NestJS dan PostgreSQL**
 
-**Day 1 — Backend Fundamentals & CRUD API**
+**Day 1 — Dasar Backend dan CRUD API**
 
 Next.js & NestJS Workshop
 
@@ -289,89 +293,55 @@ Contoh konkret: ketika nanti pengguna mencentang task sebagai selesai di UI, fro
 
 ## Tujuan Slide
 
-Menjelaskan alasan pemilihan framework tanpa membuat klaim bahwa NestJS selalu menjadi pilihan terbaik.
+Peserta memahami **apa itu NestJS**, masalah apa yang dibantu oleh framework, dan batasnya terhadap Node.js serta database sebelum mendengar istilah Module, Controller, dan Service secara rinci.
 
 ## Isi Slide
 
-### TypeScript First
+**NestJS adalah framework untuk membangun aplikasi Backend dengan Node.js.** Node.js menjalankan programnya. NestJS membantu menyusun cara program menerima HTTP Request, menjalankan aturan aplikasi, dan mengirim HTTP Response. PostgreSQL tetap menjadi tempat data disimpan; NestJS bukan database.
 
-Dibangun dengan dukungan TypeScript yang kuat.
-
-### Structured by Default
-
-Memiliki konsep:
-
-- Module.
-- Controller.
-- Service.
-- Dependency Injection.
-
-### Cocok untuk Aplikasi yang Berkembang
-
-Feature dapat dipisahkan dengan struktur yang jelas.
-
-### Ekosistem Lengkap
-
-Mendukung:
-
-- Validation.
-- Authentication.
-- WebSocket.
-- Testing.
-- OpenAPI / Swagger.
-- Microservices.
-
-### Arsitektur yang Familiar
-
-Konsep Controller, Service, dan Dependency Injection juga banyak ditemukan pada backend framework lain.
+Tanpa struktur yang jelas, route dan aturan Task dapat bercampur dalam satu file ketika fitur bertambah. NestJS memberi tempat dan tanggung jawab yang jelas: Module mengelompokkan satu feature, Controller menjadi pintu HTTP, dan Service mengerjakan operasi aplikasi. Nest juga menyediakan Service yang dibutuhkan Controller melalui Dependency Injection. Ini alasan praktis mengapa kita memakainya pada workshop, bukan klaim bahwa semua aplikasi harus memakai NestJS.
 
 ## Visual yang Disarankan
 
-Bandingkan secara sederhana.
-
-### Minimal Server
-
-```text
-Route
- ↓
-Handler
- ↓
-Logic
- ↓
-Database
-```
-
-Jika tidak diatur dengan baik, banyak responsibility dapat bercampur.
-
-### NestJS
-
-```text
-Controller
-    ↓
-Service
-    ↓
-Data Access
-```
+Logo NestJS menjadi pusat halaman. Di satu sisi ada kalimat besar “NestJS membantu Backend tetap rapi ketika fitur bertambah.” Di sisi lain tiga anotasi pendek menjelaskan **HTTP**, **pembagian tugas**, dan **Dependency Injection** dengan bahasa sehari-hari. Tidak perlu menampilkan daftar Pipes, Guards, atau konsep lanjut lainnya di halaman.
 
 ## Yang Disampaikan
 
-NestJS cukup **opinionated**.
+Mulai dari pertanyaan “Kalau Node.js sudah bisa menerima Request, kenapa memakai NestJS?” Node.js menyediakan runtime, tetapi tidak menentukan bagaimana file, route, dan aturan aplikasi harus dibagi. NestJS memberi pola agar developer lain mudah menemukan bagian yang menerima Request dan bagian yang mengerjakan operasi. Proyek workshop memakai HTTP platform Express melalui paket `@nestjs/platform-express`, tetapi peserta tidak perlu memahami adapter itu sekarang.
 
-Framework sudah memberikan pola bagaimana sebuah project sebaiknya diorganisasi.
-
-Untuk project yang mulai berkembang, struktur ini membantu menjaga code agar tidak mudah menjadi berantakan.
-
-Tekankan:
-
-> Framework tidak otomatis membuat code kita bagus.
-
-NestJS hanya memberikan struktur dan tools yang membantu kita menjaga separation of concerns.
-
-Hubungkan langsung dengan folder latihan: `TasksModule` mengelompokkan fitur, `TasksController` menerima route `/tasks`, dan `TasksService` mengerjakan operasi Task. Nama-nama ini akan muncul kembali saat live coding.
+Saat NestJS dimulai, `AppModule` menjadi titik awal. Nest membaca Module yang terdaftar dan menyiapkan Provider yang diperlukan. Controller dapat memakai Service tanpa membuatnya dengan `new` di setiap Request; itulah gambaran awal Dependency Injection. Bedakan bantuan TypeScript saat menulis kode dari ValidationPipe yang benar-benar memeriksa JSON saat Request berjalan. Hubungkan ke Task: route ada di Controller, operasi Task di Service, dan keduanya terdaftar di TasksModule. Slide berikutnya memberi analogi yang lebih mudah diingat. [NestJS Modules](https://docs.nestjs.com/modules), [Controllers](https://docs.nestjs.com/controllers), dan [Providers](https://docs.nestjs.com/providers) menjelaskan batas ini.
 
 ---
 
-# Slide 6 — Kenapa Saya Menggunakan NestJS di Project Nyata?
+# Slide 6 — Analogi Restoran untuk Module, Controller, dan Service
+
+## Tujuan Slide
+
+Membuat tiga peran utama NestJS mudah diingat sebelum peserta melihat susunan file yang sebenarnya.
+
+## Isi Slide
+
+Bayangkan sebuah restoran khusus pesanan Task. **TasksModule** mengumpulkan orang yang diperlukan agar layanan ini berjalan. **TasksController** seperti kasir: menerima pesanan melalui route HTTP yang sesuai dan meneruskannya. **TasksService** seperti dapur: mengerjakan operasi yang diminta. Jika perlu membaca atau menyimpan data, Service memakai **PrismaService** untuk berbicara dengan PostgreSQL.
+
+Tiga kalimat pendek untuk halaman:
+
+> **Module mengumpulkan. Controller menerima. Service mengerjakan.**
+
+Analogi ini menjelaskan pembagian tanggung jawab. Pada aplikasi yang sebenarnya, `ValidationPipe` memeriksa input sebelum method Controller dijalankan; kasir tidak menggantikan proses Validation.
+
+## Visual yang Disarankan
+
+Buat halaman seperti struk pesanan yang ditempel di meja, bukan tiga kartu atau diagram panah. Judul struk `POST /tasks`, lalu tiga baris besar dengan ilustrasi sederhana: papan nama restoran untuk **TasksModule**, loket untuk **TasksController**, dan meja dapur untuk **TasksService**. Tambahkan logo NestJS kecil. Di tepi struk, tampilkan contoh pesanan `title: "Belajar NestJS"`. Gunakan biru sebagai aksen utama Sticker Pop, dengan pink dan kuning untuk penanda peran.
+
+## Yang Disampaikan
+
+Mulai dengan pesanan yang mudah dibayangkan: seseorang ingin membuat Task berjudul Belajar NestJS. Di restoran, kita perlu tempat yang menyiapkan tim; di kode itulah TasksModule. Kasir mengenali jenis pesanan dan menyerahkannya ke bagian yang tepat; di kode itulah TasksController yang mengenali `POST /tasks`. Dapur mengerjakan pesanan; di kode itulah TasksService yang memanggil operasi pembuatan Task. Saat data perlu disimpan, Service memakai PrismaService.
+
+Tegaskan bahwa Module tidak menerima Request satu per satu dan Controller tidak menyimpan data sendiri. `ValidationPipe` dapat menghentikan input yang buruk sebelum method Controller berjalan. Setelah analogi dipahami, lanjutkan ke contoh penggunaan NestJS di project dan kemudian lihat file sebenarnya pada slide struktur NestJS.
+
+---
+
+# Slide 7 — Kenapa Saya Menggunakan NestJS di Project Nyata?
 
 ## Tujuan Slide
 
@@ -385,7 +355,7 @@ Slide ini sebaiknya lebih personal dan tidak terasa seperti dokumentasi framewor
 
 **Financial Management System — Koperasi Kamorina Surya Niaga**
 
-Tech stack:
+Teknologi yang digunakan:
 
 ```text
 Next.js
@@ -433,7 +403,7 @@ Jembatan ke kode workshop: tunjukkan tiga kotak kecil `TasksModule`, `TasksContr
 
 ---
 
-# Slide 7 — Tools yang Akan Digunakan
+# Slide 8 — Tools yang Akan Digunakan
 
 ## Tujuan Slide
 
@@ -480,7 +450,81 @@ Konteks proyek ini: API lokal pada contoh env berjalan di `http://localhost:3001
 
 ---
 
-# Slide 8 — Apa Itu API?
+# Slide 9 — Preflight: Cek Environment
+
+## Tujuan Slide
+
+Memastikan peserta tahu apa yang perlu siap **sebelum** live coding, sekaligus membedakan pemeriksaan tool dari bukti bahwa database benar-benar bisa diakses.
+
+## Isi Slide
+
+Tampilkan dua terminal kecil dengan perintah yang sama, satu berlabel **macOS Terminal** dan satu **Windows PowerShell**. Cek `node --version`, `npm --version`, dan `git --version`. Node.js harus mengikuti syarat repo: **20.19+**, **22.12+**, atau **24+**. Jika memakai PostgreSQL lokal melalui Docker, tambahkan `docker --version` dan pastikan Docker Engine berjalan. Jika memakai database dari panitia, Docker tidak wajib.
+
+```bash
+# macOS Terminal, dari folder mana saja
+node --version
+npm --version
+git --version
+docker --version  # hanya jika memakai PostgreSQL lokal via Docker
+```
+
+```powershell
+# Windows PowerShell, dari folder mana saja
+node --version
+npm --version
+git --version
+docker --version  # hanya jika memakai PostgreSQL lokal via Docker
+```
+
+## Visual yang Disarankan
+
+Gunakan dua jendela IDE terminal dengan syntax warna dan satu cap besar **READY?**. Di bawahnya tampilkan garis penanda “Node.js cocok”, “Git tersedia”, dan “PostgreSQL tersedia”. Hindari checklist berupa deretan box. Hasil terminal pada slide adalah contoh, bukan hasil pemeriksaan mesin peserta.
+
+## Yang Disampaikan
+
+Minta peserta membuka terminal sesuai OS. `node --version` memeriksa runtime; `npm --version` menunjukkan package manager bawaan Node tersedia; `git --version` diperlukan untuk mengambil starter. Docker hanya perlu jika mereka menjalankan PostgreSQL lokal seperti opsi di panduan Day 1. Perintah `docker --version` hanya memeriksa CLI, jadi saat praktik nanti kita masih perlu memastikan Engine dan database berjalan. Jika tool belum tersedia, gunakan instruksi instalasi dari panitia dan jangan menebak bahwa versi tertentu pasti cocok. Preflight ini mendahului `pnpm install` dan migrasi.
+
+---
+
+# Slide 10 — Siapkan pnpm
+
+## Tujuan Slide
+
+Menjelaskan kenapa repo memakai pnpm dan memberikan langkah cek serta instalasi yang dapat dipakai di macOS dan Windows.
+
+## Isi Slide
+
+Repo ini mempunyai `backend/pnpm-lock.yaml` dan `frontend/pnpm-lock.yaml`; package untuk masing-masing aplikasi dipasang dari foldernya sendiri. Kita memakai **pnpm 10** agar perintah kelas mengikuti lockfile yang sama. `pnpm install --frozen-lockfile` menjaga resolusi dependency sesuai lockfile, sedangkan shared content-addressable store membantu pemakaian disk lebih efisien. pnpm bukan bagian dari NestJS; ia package manager untuk dependency JavaScript.
+
+```bash
+# macOS Terminal
+pnpm --version
+npm install --global pnpm@10  # jika pnpm belum ada atau bukan versi 10
+pnpm --version
+cd backend
+pnpm install --frozen-lockfile
+```
+
+```powershell
+# Windows PowerShell
+pnpm --version
+npm install --global pnpm@10  # jika pnpm belum ada atau bukan versi 10
+pnpm --version
+cd .\backend
+pnpm install --frozen-lockfile
+```
+
+## Visual yang Disarankan
+
+Gunakan logo pnpm asli sebagai elemen utama, lalu perlihatkan dua area: **Why pnpm?** dengan lockfile dan shared store sebagai anotasi teks, dan **Do this first** berupa jendela terminal IDE. Jangan membuat halaman berupa bullet list instalasi.
+
+## Yang Disampaikan
+
+Periksa versi lebih dulu; instal hanya bila belum ada atau versinya tidak sesuai. Perintah npm di atas dipakai karena Node dan npm telah diperiksa pada Preflight. macOS dan Windows memakai perintah npm yang sama; yang berbeda hanya terminal dan bentuk path `cd`. Jika pemasangan global gagal karena permission atau policy mesin, selesaikan dengan pengaturan mesin peserta atau panduan panitia, bukan menjalankan perintah acak dengan hak administrator. `pnpm install` dijalankan dari `backend/`, bukan root repo karena root tidak punya `package.json`. Jelaskan bahwa `--frozen-lockfile` akan berhenti bila package manifest dan lockfile tidak cocok, sehingga kelas tidak diam-diam memakai kombinasi versi baru. Untuk instalasi pnpm yang selalu berubah, rujuk [dokumentasi pnpm](https://pnpm.io/installation/).
+
+---
+
+# Slide 11 — Apa Itu API?
 
 ## Tujuan Slide
 
@@ -545,7 +589,7 @@ berarti backend menyediakan cara untuk membuat sebuah task.
 
 ---
 
-# Slide 9 — Anatomi HTTP Request
+# Slide 12 — Anatomi HTTP Request
 
 ## Tujuan Slide
 
@@ -607,7 +651,7 @@ Untuk `GET /tasks/7`, angka `7` adalah *path parameter*; untuk `POST /tasks`, JS
 
 ---
 
-# Slide 10 — CRUD dan HTTP Method
+# Slide 13 — CRUD dan HTTP Method
 
 ## Tujuan Slide
 
@@ -662,7 +706,7 @@ HTTP Method sudah menyampaikan operasi yang ingin dilakukan.
 
 ---
 
-# Slide 11 — HTTP Status Code
+# Slide 14 — HTTP Status Code
 
 ## Tujuan Slide
 
@@ -713,102 +757,35 @@ Jangkar ke checkpoint Day 1: `POST /tasks` valid menghasilkan `201`; body tanpa 
 
 ---
 
-# Slide 12 — Bagaimana NestJS Mengorganisasi Aplikasi?
+# Slide 15 — Bagaimana NestJS Mengorganisasi Aplikasi?
 
 ## Tujuan Slide
 
-Memperkenalkan tiga building block terpenting sebelum live coding.
+Membuat konsep umum NestJS dari slide 5 terasa konkret di feature Task, terutama batas Module dan cara Dependency Injection bekerja.
 
 ## Isi Slide
 
-```text
-                  TasksModule
-                      │
-           ┌──────────┴──────────┐
-           │                     │
-   TasksController         TasksService
-           │                     │
-      HTTP Layer          Application Logic
-```
+**AppModule** adalah root Module aplikasi. Ia memasukkan **TasksModule** agar feature Task tersedia. **TasksModule** mendaftarkan `TasksController` dan `TasksService`, serta mengimpor `PrismaModule`. Module menentukan bagian mana yang bekerja bersama; ia tidak mengerjakan satu Request secara langsung.
 
-Kemudian:
+**TasksController** mengenali HTTP Method dan route, misalnya `POST /tasks` atau `GET /tasks/:id`. Method Controller menerima input yang sudah melewati Pipe, memanggil Service, lalu mengembalikan hasil. Controller menjaga urusan HTTP tetap terpisah dari operasi Task.
 
-```text
-TasksService
-     ↓
-PrismaService
-     ↓
-PostgreSQL
-```
+**TasksService** menjalankan operasi Task: membuat, membaca, mengubah, atau menghapus. Ia memakai `PrismaService` saat perlu mengakses data. Service adalah **Provider** yang didaftarkan dalam Module. Nest memberikan Service yang dibutuhkan Controller melalui **Dependency Injection**.
 
-## Module
+## Visual yang Disarankan
 
-Mengelompokkan komponen yang berhubungan dengan satu feature.
-
-Contoh:
-
-```text
-TasksModule
-```
-
-berisi hal-hal yang berhubungan dengan Task.
-
-## Controller
-
-Menangani HTTP request dan route.
-
-Contoh responsibility:
-
-```text
-POST /tasks
-GET /tasks
-PATCH /tasks/:id
-```
-
-## Service
-
-Menangani application/business logic.
-
-Contoh:
-
-```text
-Membuat Task
-Mengambil Task
-Mengubah Task
-Menghapus Task
-```
+Tampilkan susunan seperti halaman peta kode, bukan tiga kartu: `AppModule` di atas, `TasksModule` sebagai judul bagian, dan penjelasan singkat Controller serta Service dalam dua kolom editorial. Letakkan `PrismaModule` dan `PrismaService` sebagai catatan kecil di bawah. Logo NestJS kecil menjaga konteks brand.
 
 ## Yang Disampaikan
 
-Mental model sederhananya:
+Hubungkan kembali ke analogi restoran. `AppModule` adalah titik awal aplikasi; `TasksModule` mengumpulkan bagian yang diperlukan feature Task. Ketika `POST /tasks` datang, `TasksController` mengenali route lalu memanggil `TasksService`. Service menjalankan operasi pembuatan Task dan memakai `PrismaService` untuk menyimpan data. Bila input tidak valid, Pipe dapat menghentikannya sebelum method Controller berjalan.
 
-```text
-Controller
-=
-HTTP boundary
-```
+Jelaskan Dependency Injection dengan contoh sederhana: constructor Controller menyatakan bahwa ia membutuhkan `TasksService`; Nest menyiapkan dan memberikannya. Controller tidak perlu membuat `new TasksService()` sendiri. `PrismaModule` mengekspor `PrismaService`; `TasksModule` mengimpor `PrismaModule`, sehingga Provider itu dapat dipakai oleh TasksService. Ini menunjukkan arti `imports`, `providers`, `controllers`, dan `exports` yang akan terlihat saat peserta membuka file.
 
-```text
-Service
-=
-application logic
-```
-
-```text
-Module
-=
-feature organization
-```
-
-Peserta tidak perlu menghafal decorator atau syntax pada titik ini.
-
-Yang penting memahami responsibility setiap layer.
-
-Tunjuk peta file tanpa menampilkan source code: `backend/src/tasks/tasks.module.ts` menghubungkan controller dan service; controller menentukan route; service memanggil `PrismaService` yang disediakan `PrismaModule`. `AppModule` memasang feature module ke aplikasi.
+Peserta belum perlu menghafal decorator atau sintaks ini. Yang perlu mereka bisa lakukan ialah membuka file dan menunjuk responsibility tiap bagian. Cerita ini berlaku untuk feature lain di NestJS, bukan hanya Task.
 
 ---
 
-# Slide 13 — Alur Request di Aplikasi Kita
+# Slide 16 — Alur Request di Aplikasi Kita
 
 ## Tujuan Slide
 
@@ -871,7 +848,7 @@ Saat membahas `GET /tasks/:id`, ganti contoh validasi body dengan `ParseIntPipe`
 
 ---
 
-# Slide 14 — Posisi Prisma dan PostgreSQL
+# Slide 17 — Posisi Prisma dan PostgreSQL
 
 ## Tujuan Slide
 
@@ -879,66 +856,45 @@ Mencegah miskonsepsi bahwa Prisma adalah database.
 
 ## Isi Slide
 
-```text
-NestJS
-  ↓
-Prisma
-  ↓
-PostgreSQL
-```
+**NestJS** menjalankan aplikasi Backend dan mengatur HTTP Request melalui Module, Controller, Service, serta Validation. **Prisma** membantu kode Backend membaca dan menulis data dengan API yang mengikuti model di Prisma Schema. **PostgreSQL** adalah database tempat baris Task disimpan.
 
-### NestJS
+Contoh konkret: `TasksService` memanggil `PrismaService.task.create()` untuk membuat Task. Prisma mengirim query yang diperlukan, lalu PostgreSQL menyimpan barisnya. Ketika aplikasi dimulai lagi, data tetap berada di PostgreSQL.
 
-Application framework.
+## Visual yang Disarankan
 
-Menangani:
-
-- HTTP.
-- Module.
-- Controller.
-- Service.
-- Validation.
-- Application logic.
-
-### Prisma
-
-ORM / data access tool.
-
-Membantu aplikasi berkomunikasi dengan database.
-
-### PostgreSQL
-
-Database sebenarnya.
-
-Tempat data disimpan secara persisten.
-
-## Visual Tambahan
-
-```text
-Application
-    ↓
-Prisma
-    ↓
-Database Query
-    ↓
-PostgreSQL
-```
+Tampilkan dua sisi besar dengan logo Prisma dan PostgreSQL. Pada sisi Prisma tulis “cara kode mengakses data”; pada sisi PostgreSQL tulis “tempat data Task tersimpan”. Di tengah, satu contoh `task.create()` dalam gaya editor. Perbedaan keduanya harus terbaca tanpa panah panjang.
 
 ## Yang Disampaikan
 
-Tekankan:
-
-> Prisma bukan database.
-
-Jika Prisma dihapus, PostgreSQL tetap merupakan database.
-
-Prisma berada di antara aplikasi dan database agar kita dapat mengakses data dengan API yang lebih nyaman dan type-safe.
-
-Contoh dari proyek: model `Task` didefinisikan di `backend/prisma/schema.prisma`; migrasi membuat tabel PostgreSQL; `PrismaService.task.create()` dan `findMany()` dipakai service untuk menulis dan membaca. Gunakan contoh ini sebagai penjelasan lisan, tanpa menampilkan isi schema atau kode query di slide.
+Mulai dari pertanyaan: data Task sebenarnya disimpan di mana? Jawabannya PostgreSQL. Prisma membantu kode mengakses data itu. `PrismaService` adalah pembungkus Prisma Client yang dipakai aplikasi workshop, sedangkan PostgreSQL tetap menjadi database. Prisma Client menyediakan method seperti `task.create()` dan `task.findMany()` berdasarkan model yang kita definisikan. Pada slide berikutnya, jelaskan bagaimana model berubah menjadi tabel dan method tersebut.
 
 ---
 
-# Slide 15 — Kenapa Kita Membutuhkan Validation?
+# Slide 18 — Dari Model Task ke Query Prisma
+
+## Tujuan Slide
+
+Menjelaskan tiga bagian Prisma yang akan peserta temui saat praktik: Prisma Schema, Prisma Migrate, dan Prisma Client.
+
+## Isi Slide
+
+**Prisma Schema** mendefinisikan bentuk model `Task`, termasuk `title`, `completed`, dan tipe masing-masing. **Prisma Migrate** membuat perubahan struktur database dari model itu, misalnya tabel Task pada PostgreSQL. **Prisma Client** menghasilkan API bertipe yang dipakai kode, misalnya `task.create()` dan `task.findMany()`. Dalam project ini, `TasksService` memanggil API tersebut melalui `PrismaService`.
+
+Jelaskan urutannya secara lisan: tulis model, jalankan migrasi dan generate sesuai langkah praktik, lalu pakai Client dalam Service. Menulis model saja belum otomatis membuat tabel atau menyimpan data.
+
+## Visual yang Disarankan
+
+Gunakan tata letak seperti halaman editor: di kiri cuplikan model `Task` yang memuat `id`, `title String`, dan `completed Boolean @default(false)`; di tengah tiga anotasi bernomor untuk **Schema**, **Migrate**, dan **Client**; di kanan satu baris kode `this.prismaService.task.create({ data: body })` dari checkpoint Day 1. Logo Prisma kecil cukup sebagai penanda. Hindari diagram panah dan paragraf panjang.
+
+## Yang Disampaikan
+
+Buka dengan contoh Task Belajar NestJS. Di `backend/prisma/schema.prisma`, model Task memberi tahu Prisma field yang ada dan tipenya; `completed` adalah Boolean dengan default `false`. Prisma Migrate mencatat perubahan schema sebagai migrasi dan menerapkannya ke PostgreSQL. Prisma Client kemudian dihasilkan dari schema, sehingga kode TypeScript mengenal method dan tipe untuk model Task. Saat `TasksService` memanggil `this.prismaService.task.create({ data: body })`, operasi itu menulis data ke PostgreSQL melalui Prisma Client.
+
+Tekankan perbedaan struktur dan isi: migrasi menyiapkan tabel, sedangkan `create()` menambah satu baris Task. Jika model berubah, developer memperbarui schema, membuat migrasi yang diperlukan, dan menghasilkan ulang Client. Pada Day 1, jangan membahas relasi User atau JWT. Rujukan: [Prisma Schema](https://docs.prisma.io/docs/orm/v7/prisma-schema/overview), [Prisma Migrate](https://docs.prisma.io/docs/orm/v7/prisma-migrate), dan [Prisma Client](https://docs.prisma.io/docs/orm/v7/prisma-client/setup-and-configuration/generating-prisma-client).
+
+---
+
+# Slide 19 — Kenapa Kita Membutuhkan Validation?
 
 ## Tujuan Slide
 
@@ -1008,7 +964,7 @@ Dalam checkpoint Day 1, `CreateTaskDto` meminta `title` berupa string yang tidak
 
 ---
 
-# Slide 16 — Task Data Model
+# Slide 20 — Task Data Model
 
 ## Tujuan Slide
 
@@ -1057,7 +1013,7 @@ Contoh yang mudah diingat: task baru dengan judul “Belajar NestJS” otomatis 
 
 ---
 
-# Slide 17 — Roadmap Live Coding
+# Slide 21 — Roadmap Live Coding
 
 ## Tujuan Slide
 
@@ -1109,7 +1065,7 @@ Panduan Day 1 memakai kerangka Nest dan model/migrasi Task yang sudah ada di `da
 
 ---
 
-# Slide 18 — Mental Model yang Perlu Diingat
+# Slide 22 — Mental Model yang Perlu Diingat
 
 ## Tujuan Slide
 
@@ -1166,83 +1122,28 @@ Transisi lisan yang dapat dipakai: “Sekarang kita mulai dari route paling sede
 
 # Panduan Durasi Presentasi
 
-| Bagian | Slide | Target Durasi |
-|---|---:|---:|
-| Opening & konteks | 1–3 | 3–4 menit |
-| Backend & NestJS | 4–6 | 5 menit |
-| Tools | 7 | 1–2 menit |
-| Fundamental API & HTTP | 8–11 | 5 menit |
-| Arsitektur NestJS | 12–15 | 7 menit |
-| Project & live coding | 16–18 | 3 menit |
-| **Total** | **18 slide** | **±24–26 menit** |
+| Bagian | Halaman | Target durasi |
+| --- | ---: | ---: |
+| Pembuka dan konteks | 1–3 | 3 menit |
+| Backend dan dasar NestJS | 4–7 | 5 menit |
+| Tools, Preflight, pnpm | 8–10 | 4 menit |
+| API dan HTTP | 11–14 | 5 menit |
+| Struktur NestJS dan alur Request | 15–16 | 4 menit |
+| Prisma dan Validation | 17–19 | 5 menit |
+| Task dan pengantar live coding | 20–22 | 4 menit |
+| **Total** | **22** | **±30 menit** |
 
-Jangan merasa harus menghabiskan satu menit untuk setiap slide.
-
-Beberapa slide seperti cover dan tools cukup 30–45 detik.
-
-Slide yang sebaiknya mendapat penjelasan lebih lama:
-
-- Kenapa NestJS.
-- Real project.
-- Struktur NestJS.
-- Request lifecycle.
-- Validation.
+Cover dan Tools bisa bergerak cepat. Beri waktu lebih untuk NestJS fundamentals, Dependency Injection, Request lifecycle, dan Validation. Preflight adalah orientasi; pengecekan mesin peserta yang sesungguhnya dilakukan saat praktik.
 
 ---
 
 # Arahan Visual untuk Slide
 
-Secara umum, hindari slide yang penuh paragraf.
+Pakai theme **Sticker Pop** dari lampiran dengan electric purple diganti biru. Latar warm peach, tipografi Outfit/Inter, pink dan kuning untuk aksen, garis tegas, serta cap miring kecil menjadi kosakata visualnya. Pertahankan deck statis sesuai permintaan awal, tanpa animation. Variasikan komposisi: headline editorial, logo collage, terminal IDE, lembar anotasi, tabel typographic, dan satu diagram garis halus. Hindari deretan kartu identik, panah besar, dan karakter dekoratif yang mengganggu keterbacaan.
 
-Prioritaskan:
+Gunakan logo Bruno, NestJS, Prisma, PostgreSQL, Node.js, dan pnpm pada konteks yang tepat. Logo membantu orientasi tetapi tidak menggantikan penjelasan. Bila halaman menampilkan HTTP atau command, pakai jendela IDE dengan label file/terminal, syntax color, dan ukuran huruf yang terbaca dari belakang ruangan. Slide 8 dan 9 adalah pengecualian yang memang perlu menampilkan command; halaman konsep lain tidak berubah menjadi tutorial panjang.
 
-- Diagram.
-- Flow.
-- Icon.
-- Screenshot.
-- Tabel kecil.
-- Keyword.
-- Simple architecture visualization.
-
-## Slide yang Sebaiknya Sangat Visual
-
-### Slide 4
-
-```text
-Frontend → Backend → Database
-```
-
-### Slide 6
-
-Screenshot project + tech stack.
-
-### Slide 8
-
-Client → API → Backend.
-
-### Slide 12
-
-Module → Controller → Service.
-
-### Slide 13
-
-Full request lifecycle.
-
-### Slide 14
-
-NestJS → Prisma → PostgreSQL.
-
-### Slide 15
-
-Valid vs invalid request.
-
-### Slide 17
-
-Live coding roadmap.
-
-### Slide 18
-
-Final mental model.
+Visual prioritas: slide 4 memperlihatkan batas Frontend, Backend, dan Database; slide 5 menjelaskan NestJS secara umum; slide 6 memakai analogi restoran; slide 15 menjelaskan Module, Controller, dan Service; slide 16 memperlihatkan alur Request; slide 18 menjelaskan Prisma; slide 19 membandingkan input valid dan tidak valid; slide 21 mengantar praktik.
 
 ---
 
@@ -1250,15 +1151,15 @@ Final mental model.
 
 Karena coding dilakukan setelah presentasi, hindari memasukkan:
 
-- Command instalasi Node.js.
-- Command pnpm.
+- Command instalasi Node.js yang panjang.
+- Command pnpm di luar halaman Preflight dan penyiapan package manager.
 - Command Nest CLI.
 - NestJS decorator syntax.
 - Source code Controller.
 - Source code Service.
 - Source code DTO.
-- Source code Prisma.
-- Isi `schema.prisma`.
+- Source code Prisma yang panjang.
+- Isi `schema.prisma` secara penuh.
 - Isi `.env`.
 - Migration command.
 - Seeder implementation.
@@ -1355,3 +1256,10 @@ Targetnya:
 Syntax dapat dicari kembali melalui dokumentasi.
 
 Pemahaman arsitektur jauh lebih penting.
+
+## Rujukan untuk revisi ini
+
+- [NestJS Modules](https://docs.nestjs.com/modules), [Controllers](https://docs.nestjs.com/controllers), dan [Providers](https://docs.nestjs.com/providers) untuk penjelasan Module, HTTP boundary, Provider, serta Dependency Injection.
+- [Prisma Schema](https://docs.prisma.io/docs/orm/v7/prisma-schema/overview), [Prisma Migrate](https://docs.prisma.io/docs/orm/v7/prisma-migrate), dan [Prisma Client](https://docs.prisma.io/docs/orm/v7/prisma-client/setup-and-configuration/generating-prisma-client) untuk pembagian fungsi Schema, Migrate, dan Client.
+- [pnpm Installation](https://pnpm.io/installation/) untuk kompatibilitas versi dan pilihan instalasi; [pnpm](https://pnpm.io/) untuk shared content-addressable store.
+- [Simple Icons](https://simpleicons.org/) untuk file logo vektor yang disimpan lokal di folder deck.
