@@ -190,6 +190,42 @@ const NestAnalogy: Page = () => (
   </Canvas>
 );
 
+const NestStructureAnalogy: Page = () => (
+  <Canvas label="Di balik restoran" bg={peachDeep}>
+    <Title size={84} width={1520} style={{ marginTop: 93 }}>Di balik struk, siapa bekerja?</Title>
+    <svg role="img" aria-label="Ilustrasi restoran Task. TasksModule menaungi loket TasksController dan dapur TasksService." viewBox="0 0 1680 590" style={{ position: 'absolute', left: 119, top: 306, width: 1680, height: 590 }}>
+      <ellipse cx="840" cy="556" rx="775" ry="27" fill={blueInk} opacity="0.13" />
+      <rect x="113" y="158" width="1454" height="388" rx="14" fill={cream} stroke={blueInk} strokeWidth="6" />
+      <path d="M70 174 L207 28 Q222 14 254 14 H1426 Q1458 14 1473 28 L1610 174 Z" fill={electric} stroke={blueInk} strokeWidth="6" strokeLinejoin="round" />
+      <path d="M142 174 H1538" stroke={blueInk} strokeWidth="6" />
+      <text x="840" y="104" textAnchor="middle" fill={cream} fontFamily={display} fontSize="72" fontWeight="800">TasksModule</text>
+      <text x="840" y="145" textAnchor="middle" fill={cream} fontFamily={body} fontSize="25" fontWeight="700">satu feature yang menaungi kedua peran</text>
+      <rect x="180" y="210" width="625" height="290" rx="17" fill={peach} stroke={blueInk} strokeWidth="4" />
+      <rect x="875" y="210" width="625" height="290" rx="17" fill="#fff0bf" stroke={blueInk} strokeWidth="4" />
+      <text x="222" y="255" fill={blueInk} fontFamily={display} fontSize="43" fontWeight="800">TasksController</text>
+      <text x="222" y="286" fill={muted} fontFamily={body} fontSize="24" fontWeight="700">Loket menerima HTTP Request</text>
+      <text x="918" y="255" fill={blueInk} fontFamily={display} fontSize="43" fontWeight="800">TasksService</text>
+      <text x="918" y="286" fill={muted} fontFamily={body} fontSize="24" fontWeight="700">Dapur mengerjakan operasi Task</text>
+      <path d="M840 184 V518" stroke={blueInk} strokeWidth="5" strokeDasharray="12 13" />
+      <circle cx="350" cy="366" r="43" fill="#f5b18d" stroke={blueInk} strokeWidth="4" />
+      <path d="M306 352 Q309 298 353 305 Q402 306 394 352 Q378 326 351 326 Q329 326 306 352" fill={blueInk} />
+      <path d="M293 478 Q295 406 350 406 Q405 406 408 478" fill={pink} stroke={blueInk} strokeWidth="4" />
+      <path d="M285 466 H684 V500 H285 Z" fill={electric} stroke={blueInk} strokeWidth="4" />
+      <rect x="459" y="364" width="177" height="95" rx="7" fill={cream} stroke={blueInk} strokeWidth="4" transform="rotate(-8 459 364)" />
+      <text x="477" y="410" fill={blueInk} fontFamily={mono} fontSize="19" transform="rotate(-8 477 410)">POST /tasks</text>
+      <circle cx="1100" cy="367" r="43" fill="#f5b18d" stroke={blueInk} strokeWidth="4" />
+      <path d="M1054 337 Q1057 303 1083 307 Q1102 281 1121 307 Q1149 303 1151 337 Z" fill={cream} stroke={blueInk} strokeWidth="4" />
+      <path d="M1042 478 Q1045 406 1100 406 Q1155 406 1158 478" fill={electric} stroke={blueInk} strokeWidth="4" />
+      <path d="M1037 429 Q1100 449 1164 429" fill="none" stroke={cream} strokeWidth="8" />
+      <path d="M1190 421 H1360 L1347 482 H1203 Z" fill={pink} stroke={blueInk} strokeWidth="4" />
+      <path d="M1210 419 Q1275 385 1340 419" fill={cream} stroke={blueInk} strokeWidth="4" />
+      <path d="M1242 370 Q1224 353 1242 337 M1280 375 Q1260 353 1280 333 M1318 371 Q1300 352 1318 337" fill="none" stroke={electric} strokeWidth="5" strokeLinecap="round" />
+      <path d="M1070 500 H1412" stroke={blueInk} strokeWidth="5" />
+    </svg>
+    <div style={{ position: 'absolute', left: 139, top: 916, fontSize: 30, fontWeight: 700 }}>Module mengelompokkan. Controller menerima. Service mengerjakan.</div>
+  </Canvas>
+);
+
 const RealProject: Page = () => (
   <Canvas label="Contoh nyata" bg={yellow}>
     <Title size={79} width={1280} style={{ marginTop: 106 }}>Kenapa saya memakai NestJS<br />di project nyata?</Title>
@@ -441,12 +477,13 @@ const Closing: Page = () => (
 
 export const notes: (string | undefined)[] = [
   `Durasi ±45 detik. Perkenalkan sesi Day 1 sebagai fondasi backend. Hari ini kita membuat REST API untuk task workshop yang benar-benar tersimpan di PostgreSQL. Setelah presentasi singkat, kita akan live coding. Fokus paparan ini adalah alur, bukan sintaks. Saat tombol buat, ubah, atau hapus hadir di frontend pada Day 2, request akan masuk ke backend yang kita pahami hari ini.`,
-  `Durasi ±1 menit. Hasil akhirnya adalah Task Management API dengan lima operasi: membuat, membaca semua, membaca satu, mengubah, dan menghapus task. Ada validasi request dan penanganan error sederhana. Hari ini Bruno menjadi client; Day 2 Next.js akan memakai kontrak API yang sama. Contoh task berjudul Belajar NestJS dimulai dengan completed false. Pada Day 1 seluruh task masih berada dalam daftar bersama.`,
+  `Durasi ±45 detik. Hasil akhirnya adalah Task Management API dengan lima operasi: membuat, membaca semua, membaca satu, mengubah, dan menghapus task. Ada validasi request dan penanganan error sederhana. Hari ini Bruno menjadi client; Day 2 Next.js akan memakai kontrak API yang sama. Contoh task berjudul Belajar NestJS dimulai dengan completed false. Pada Day 1 seluruh task masih berada dalam daftar bersama.`,
   `Durasi ±1 menit. Bacakan perjalanan empat hari tanpa membahas detail hari berikutnya. Day 1 menyelesaikan alur request, validasi, logika, dan penyimpanan data. Day 2 memasang frontend Next.js di atas API ini. Day 3 baru menambahkan identitas pengguna dan API yang terlindungi. Day 4 peserta mempresentasikan project. Bayangkan satu Task yang sama makin lengkap dari hari ke hari.`,
-  `Durasi ±1,5 menit. Frontend mengurus tampilan dan interaksi, backend mengurus aturan dan operasi data, database menyimpan data. Saat pengguna mencentang Task di UI, frontend kelak mengirim PATCH /tasks/:id dengan completed true. Backend memprosesnya dan PostgreSQL menyimpan nilai baru. Di workshop ini Next.js tidak berbicara langsung dengan PostgreSQL; NestJS menjadi lapisan aplikasinya.`,
+  `Durasi ±1 menit. Frontend mengurus tampilan dan interaksi, backend mengurus aturan dan operasi data, database menyimpan data. Saat pengguna mencentang Task di UI, frontend kelak mengirim PATCH /tasks/:id dengan completed true. Backend memprosesnya dan PostgreSQL menyimpan nilai baru. Di workshop ini Next.js tidak berbicara langsung dengan PostgreSQL; NestJS menjadi lapisan aplikasinya.`,
   `Durasi ±2 menit. NestJS adalah framework untuk membangun aplikasi Backend dengan Node.js. Node.js menjalankan programnya; NestJS membantu kita menyusun penerimaan HTTP Request, pembagian tanggung jawab, dan pengiriman HTTP Response. Framework ini tidak menyimpan data; PostgreSQL melakukannya. Saat feature bertambah, Module mengelompokkan bagian yang berkaitan. Controller mengenali route HTTP, sedangkan Service mengerjakan operasi aplikasi. Nest juga menyiapkan Service yang dibutuhkan Controller melalui Dependency Injection. TypeScript membantu saat menulis kode, tetapi JSON dari client tetap perlu diperiksa dengan ValidationPipe saat Request berjalan. Pada project ini, AppModule menjadi titik awal dan TasksModule menangani feature Task.`,
   `Durasi ±1 menit. Bayangkan kita memesan Task berjudul Belajar NestJS di sebuah restoran. TasksModule menyiapkan tim untuk layanan Task. TasksController seperti kasir yang mengenali pesanan POST /tasks. TasksService seperti dapur yang mengerjakan operasi pembuatan Task. Jika perlu menyimpan hasilnya, Service memakai PrismaService. Ini analogi untuk tanggung jawab tiap bagian, bukan urutan teknis yang persis. Dalam aplikasi, ValidationPipe memeriksa input sebelum method Controller dijalankan. Module tidak menangani setiap Request satu per satu, dan Controller tidak menyimpan data sendiri.`,
-  `Durasi ±1,5 menit. Ini bahan cerita pribadi pemateri dari Financial Management System Koperasi Kamorina Surya Niaga. Sebelum menampilkan deck ke publik, pemateri perlu mengonfirmasi sendiri nama dan arsitektur proyek pribadi ini; keduanya tidak diperiksa dari repository workshop. Ceritakan satu contoh ketika fitur bertambah dan module membantu menjaga struktur, controller tetap menangani HTTP, serta service menampung logika aplikasi. Jangan menambahkan klaim jumlah pengguna tanpa bukti. Hubungkan kembali ke TasksModule, TasksController, dan TasksService yang jauh lebih kecil tetapi memakai pola yang sama.`,
+  `Durasi ±1 menit. Lihat restoran dari dalam. TasksModule seperti bangunan yang menyiapkan tempat bagi dua peran: TasksController di loket dan TasksService di dapur. Loket mengenali POST /tasks dan menerima pesanan yang masuk. Dapur mengerjakan operasi membuat Task. Module mendaftarkan Controller dan Service agar Nest tahu bagian mana yang bekerja bersama. Dalam kode, Module bukan ruangan fisik dan tidak memproses setiap Request. ValidationPipe memeriksa input sebelum method Controller berjalan. Saat perlu menyimpan hasilnya, Service memakai PrismaService; detail itu akan kita lihat nanti.`,
+  `Durasi ±1 menit. Ini bahan cerita pribadi pemateri dari Financial Management System Koperasi Kamorina Surya Niaga. Sebelum menampilkan deck ke publik, pemateri perlu mengonfirmasi sendiri nama dan arsitektur proyek pribadi ini; keduanya tidak diperiksa dari repository workshop. Ceritakan satu contoh ketika fitur bertambah dan module membantu menjaga struktur, controller tetap menangani HTTP, serta service menampung logika aplikasi. Jangan menambahkan klaim jumlah pengguna tanpa bukti. Hubungkan kembali ke TasksModule, TasksController, dan TasksService yang jauh lebih kecil tetapi memakai pola yang sama.`,
   `Durasi ±1 menit. Sebut peran tiap tool secara singkat. Node.js menjalankan aplikasi, pnpm mengelola paket, NestJS menyajikan API, Prisma menjadi alat akses data, PostgreSQL menyimpan data, Bruno mengirim request, dan editor dipakai menulis kode. Contoh API lokal ada di port 3001 sesuai konfigurasi latihan. Peserta boleh memakai Windows, Linux, atau macOS; proses instalasi tidak dibahas di presentasi ini.`,
   `Durasi ±1 menit. Minta peserta membuka macOS Terminal atau Windows PowerShell. Cek versi Node, npm, dan Git. Node harus cocok dengan syarat repo: 20.19 ke atas, 22.12 ke atas, atau 24 ke atas. Docker hanya diperlukan bila memakai PostgreSQL lokal via Docker; peserta yang memakai database panitia tidak wajib memasangnya. Perintah docker --version hanya membuktikan CLI tersedia, belum membuktikan Engine atau database sudah berjalan. Hasil di slide hanya contoh. Pemeriksaan mesin peserta dilakukan saat praktik, sebelum install package dan migrasi.`,
   `Durasi ±1 menit. Repo mempunyai lockfile pnpm terpisah di backend dan frontend. Gunakan pnpm 10 agar instalasi kelas mengikuti versi package manager yang sama. Lockfile membantu mengunci resolusi dependency, dan shared store pnpm menghemat disk. Cek pnpm --version dahulu. Bila belum ada atau bukan versi 10, jalankan npm install --global pnpm@10 setelah Node dan npm lolos Preflight. Jalankan pnpm install --frozen-lockfile dari backend, bukan root repo. Jalankan semua perintah folder dari root repository. Jika instalasi global terhalang policy mesin, ikuti bantuan setup panitia.`,
@@ -469,4 +506,4 @@ export const meta: SlideMeta = {
   createdAt: '2026-10-07T03:31:11.667Z',
 };
 
-export default [Cover, Goal, Workshop, Backend, NestFundamental, NestAnalogy, RealProject, Tools, Preflight, Pnpm, Api, Anatomy, Crud, Status, Organization, RequestFlow, Prisma, PrismaWorkflow, Validation, DataModel, Roadmap, Closing] satisfies Page[];
+export default [Cover, Goal, Workshop, Backend, NestFundamental, NestAnalogy, NestStructureAnalogy, RealProject, Tools, Preflight, Pnpm, Api, Anatomy, Crud, Status, Organization, RequestFlow, Prisma, PrismaWorkflow, Validation, DataModel, Roadmap, Closing] satisfies Page[];

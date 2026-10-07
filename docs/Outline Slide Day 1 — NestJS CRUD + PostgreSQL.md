@@ -3,7 +3,7 @@
 ## Gambaran Umum Presentasi
 
 **Target durasi:** ±28–30 menit
-**Jumlah halaman:** 22. Delapan belas topik awal tetap berurutan; halaman persiapan, analogi NestJS, dan alur kerja Prisma disisipkan pada titik yang relevan.
+**Jumlah halaman:** 23. Delapan belas topik awal tetap berurutan; halaman persiapan, dua analogi NestJS, dan alur kerja Prisma disisipkan pada titik yang relevan.
 
 Presentasi ini **bukan sesi coding**. Tujuannya adalah membangun pemahaman dan mental model peserta sebelum masuk ke sesi live coding.
 
@@ -38,31 +38,32 @@ Setelah presentasi selesai, peserta diharapkan memahami:
 4. Memahami Posisi Backend
 5. Kenapa Menggunakan NestJS?
 6. Analogi Restoran untuk Module, Controller, dan Service
-7. Kenapa Saya Menggunakan NestJS di Project Nyata?
+7. Struktur NestJS dalam Ilustrasi Restoran
+8. Kenapa Saya Menggunakan NestJS di Project Nyata?
 
 ## Bagian 3 — Environment & Tools
 
-8. Tools yang Akan Digunakan
-9. Preflight: Cek Environment
-10. Siapkan pnpm
+9. Tools yang Akan Digunakan
+10. Preflight: Cek Environment
+11. Siapkan pnpm
 
 ## Bagian 4 — Fundamental Backend
 
-11. Apa Itu API?
-12. Anatomi HTTP Request
-13. CRUD dan HTTP Method
-14. HTTP Status Code
-15. Bagaimana NestJS Mengorganisasi Aplikasi?
-16. Alur Request di Aplikasi Kita
-17. Posisi Prisma dan PostgreSQL
-18. Dari Model Task ke Query Prisma
-19. Kenapa Kita Membutuhkan Validation?
+12. Apa Itu API?
+13. Anatomi HTTP Request
+14. CRUD dan HTTP Method
+15. HTTP Status Code
+16. Bagaimana NestJS Mengorganisasi Aplikasi?
+17. Alur Request di Aplikasi Kita
+18. Posisi Prisma dan PostgreSQL
+19. Dari Model Task ke Query Prisma
+20. Kenapa Kita Membutuhkan Validation?
 
 ## Bagian 5 — Project Hari Ini
 
-20. Task Data Model
-21. Roadmap Live Coding
-22. Mental Model yang Perlu Diingat
+21. Task Data Model
+22. Roadmap Live Coding
+23. Mental Model yang Perlu Diingat
 
 ---
 
@@ -337,11 +338,31 @@ Buat halaman seperti struk pesanan yang ditempel di meja, bukan tiga kartu atau 
 
 Mulai dengan pesanan yang mudah dibayangkan: seseorang ingin membuat Task berjudul Belajar NestJS. Di restoran, kita perlu tempat yang menyiapkan tim; di kode itulah TasksModule. Kasir mengenali jenis pesanan dan menyerahkannya ke bagian yang tepat; di kode itulah TasksController yang mengenali `POST /tasks`. Dapur mengerjakan pesanan; di kode itulah TasksService yang memanggil operasi pembuatan Task. Saat data perlu disimpan, Service memakai PrismaService.
 
-Tegaskan bahwa Module tidak menerima Request satu per satu dan Controller tidak menyimpan data sendiri. `ValidationPipe` dapat menghentikan input yang buruk sebelum method Controller berjalan. Setelah analogi dipahami, lanjutkan ke contoh penggunaan NestJS di project dan kemudian lihat file sebenarnya pada slide struktur NestJS.
+Tegaskan bahwa Module tidak menerima Request satu per satu dan Controller tidak menyimpan data sendiri. `ValidationPipe` dapat menghentikan input yang buruk sebelum method Controller berjalan. Setelah analogi dipahami, lanjutkan ke ilustrasi bagian dalam restoran sebelum melihat contoh project dan file sebenarnya.
 
 ---
 
-# Slide 7 — Kenapa Saya Menggunakan NestJS di Project Nyata?
+# Slide 7 — Struktur NestJS dalam Ilustrasi Restoran
+
+## Tujuan Slide
+
+Menunjukkan hubungan antarbagian secara visual setelah peserta mengenal perannya dari struk pada slide sebelumnya.
+
+## Isi Slide
+
+**TasksModule** menaungi feature Task dan mendaftarkan **TasksController** serta **TasksService**. Dalam analogi restoran, Controller berada di loket untuk menerima HTTP Request, sedangkan Service berada di dapur untuk mengerjakan operasi Task. Satu kalimat di bawah ilustrasi merangkum hubungan itu: “Module mengelompokkan. Controller menerima. Service mengerjakan.”
+
+## Visual yang Disarankan
+
+Pertahankan ilustrasi potongan depan restoran dari versi awal slide ini. Atap besar bertuliskan `TasksModule` menaungi loket dengan kasir dan struk `POST /tasks`, serta dapur dengan juru masak dan panci. Letakkan label `TasksController` dan `TasksService` di bagian atas masing-masing ruang. Sisakan jarak jelas antara teks dan kepala karakter; hilangkan dekorasi kecil yang tidak menambah makna. Tetap gunakan warna Sticker Pop dengan aksen biru.
+
+## Yang Disampaikan
+
+Lihat restoran dari dalam. TasksModule seperti bangunan yang menyiapkan tempat bagi dua peran: TasksController di loket dan TasksService di dapur. Loket mengenali `POST /tasks` dan menerima pesanan yang masuk. Dapur mengerjakan operasi membuat Task. Module mendaftarkan Controller dan Service agar Nest tahu bagian mana yang bekerja bersama. Dalam kode, Module bukan ruangan fisik dan tidak memproses setiap Request. `ValidationPipe` memeriksa input sebelum method Controller berjalan. Saat perlu menyimpan hasilnya, Service memakai `PrismaService`; detail itu akan terlihat pada bagian Prisma.
+
+---
+
+# Slide 8 — Kenapa Saya Menggunakan NestJS di Project Nyata?
 
 ## Tujuan Slide
 
@@ -403,7 +424,7 @@ Jembatan ke kode workshop: tunjukkan tiga kotak kecil `TasksModule`, `TasksContr
 
 ---
 
-# Slide 8 — Tools yang Akan Digunakan
+# Slide 9 — Tools yang Akan Digunakan
 
 ## Tujuan Slide
 
@@ -450,7 +471,7 @@ Konteks proyek ini: API lokal pada contoh env berjalan di `http://localhost:3001
 
 ---
 
-# Slide 9 — Preflight: Cek Environment
+# Slide 10 — Preflight: Cek Environment
 
 ## Tujuan Slide
 
@@ -486,7 +507,7 @@ Minta peserta membuka terminal sesuai OS. `node --version` memeriksa runtime; `n
 
 ---
 
-# Slide 10 — Siapkan pnpm
+# Slide 11 — Siapkan pnpm
 
 ## Tujuan Slide
 
@@ -524,7 +545,7 @@ Periksa versi lebih dulu; instal hanya bila belum ada atau versinya tidak sesuai
 
 ---
 
-# Slide 11 — Apa Itu API?
+# Slide 12 — Apa Itu API?
 
 ## Tujuan Slide
 
@@ -589,7 +610,7 @@ berarti backend menyediakan cara untuk membuat sebuah task.
 
 ---
 
-# Slide 12 — Anatomi HTTP Request
+# Slide 13 — Anatomi HTTP Request
 
 ## Tujuan Slide
 
@@ -651,7 +672,7 @@ Untuk `GET /tasks/7`, angka `7` adalah *path parameter*; untuk `POST /tasks`, JS
 
 ---
 
-# Slide 13 — CRUD dan HTTP Method
+# Slide 14 — CRUD dan HTTP Method
 
 ## Tujuan Slide
 
@@ -706,7 +727,7 @@ HTTP Method sudah menyampaikan operasi yang ingin dilakukan.
 
 ---
 
-# Slide 14 — HTTP Status Code
+# Slide 15 — HTTP Status Code
 
 ## Tujuan Slide
 
@@ -757,7 +778,7 @@ Jangkar ke checkpoint Day 1: `POST /tasks` valid menghasilkan `201`; body tanpa 
 
 ---
 
-# Slide 15 — Bagaimana NestJS Mengorganisasi Aplikasi?
+# Slide 16 — Bagaimana NestJS Mengorganisasi Aplikasi?
 
 ## Tujuan Slide
 
@@ -785,7 +806,7 @@ Peserta belum perlu menghafal decorator atau sintaks ini. Yang perlu mereka bisa
 
 ---
 
-# Slide 16 — Alur Request di Aplikasi Kita
+# Slide 17 — Alur Request di Aplikasi Kita
 
 ## Tujuan Slide
 
@@ -848,7 +869,7 @@ Saat membahas `GET /tasks/:id`, ganti contoh validasi body dengan `ParseIntPipe`
 
 ---
 
-# Slide 17 — Posisi Prisma dan PostgreSQL
+# Slide 18 — Posisi Prisma dan PostgreSQL
 
 ## Tujuan Slide
 
@@ -870,7 +891,7 @@ Mulai dari pertanyaan: data Task sebenarnya disimpan di mana? Jawabannya Postgre
 
 ---
 
-# Slide 18 — Dari Model Task ke Query Prisma
+# Slide 19 — Dari Model Task ke Query Prisma
 
 ## Tujuan Slide
 
@@ -894,7 +915,7 @@ Tekankan perbedaan struktur dan isi: migrasi menyiapkan tabel, sedangkan `create
 
 ---
 
-# Slide 19 — Kenapa Kita Membutuhkan Validation?
+# Slide 20 — Kenapa Kita Membutuhkan Validation?
 
 ## Tujuan Slide
 
@@ -964,7 +985,7 @@ Dalam checkpoint Day 1, `CreateTaskDto` meminta `title` berupa string yang tidak
 
 ---
 
-# Slide 20 — Task Data Model
+# Slide 21 — Task Data Model
 
 ## Tujuan Slide
 
@@ -1013,7 +1034,7 @@ Contoh yang mudah diingat: task baru dengan judul “Belajar NestJS” otomatis 
 
 ---
 
-# Slide 21 — Roadmap Live Coding
+# Slide 22 — Roadmap Live Coding
 
 ## Tujuan Slide
 
@@ -1065,7 +1086,7 @@ Panduan Day 1 memakai kerangka Nest dan model/migrasi Task yang sudah ada di `da
 
 ---
 
-# Slide 22 — Mental Model yang Perlu Diingat
+# Slide 23 — Mental Model yang Perlu Diingat
 
 ## Tujuan Slide
 
@@ -1124,14 +1145,14 @@ Transisi lisan yang dapat dipakai: “Sekarang kita mulai dari route paling sede
 
 | Bagian | Halaman | Target durasi |
 | --- | ---: | ---: |
-| Pembuka dan konteks | 1–3 | 3 menit |
-| Backend dan dasar NestJS | 4–7 | 5 menit |
-| Tools, Preflight, pnpm | 8–10 | 4 menit |
-| API dan HTTP | 11–14 | 5 menit |
-| Struktur NestJS dan alur Request | 15–16 | 4 menit |
-| Prisma dan Validation | 17–19 | 5 menit |
-| Task dan pengantar live coding | 20–22 | 4 menit |
-| **Total** | **22** | **±30 menit** |
+| Pembuka dan konteks | 1–3 | 2,5 menit |
+| Backend dan dasar NestJS | 4–8 | 6 menit |
+| Tools, Preflight, pnpm | 9–11 | 3 menit |
+| API dan HTTP | 12–15 | 6 menit |
+| Struktur NestJS dan alur Request | 16–17 | 4 menit |
+| Prisma dan Validation | 18–20 | 4,5 menit |
+| Task dan pengantar live coding | 21–23 | 4 menit |
+| **Total** | **23** | **±30 menit** |
 
 Cover dan Tools bisa bergerak cepat. Beri waktu lebih untuk NestJS fundamentals, Dependency Injection, Request lifecycle, dan Validation. Preflight adalah orientasi; pengecekan mesin peserta yang sesungguhnya dilakukan saat praktik.
 
@@ -1141,9 +1162,9 @@ Cover dan Tools bisa bergerak cepat. Beri waktu lebih untuk NestJS fundamentals,
 
 Pakai theme **Sticker Pop** dari lampiran dengan electric purple diganti biru. Latar warm peach, tipografi Outfit/Inter, pink dan kuning untuk aksen, garis tegas, serta cap miring kecil menjadi kosakata visualnya. Pertahankan deck statis sesuai permintaan awal, tanpa animation. Variasikan komposisi: headline editorial, logo collage, terminal IDE, lembar anotasi, tabel typographic, dan satu diagram garis halus. Hindari deretan kartu identik, panah besar, dan karakter dekoratif yang mengganggu keterbacaan.
 
-Gunakan logo Bruno, NestJS, Prisma, PostgreSQL, Node.js, dan pnpm pada konteks yang tepat. Logo membantu orientasi tetapi tidak menggantikan penjelasan. Bila halaman menampilkan HTTP atau command, pakai jendela IDE dengan label file/terminal, syntax color, dan ukuran huruf yang terbaca dari belakang ruangan. Slide 8 dan 9 adalah pengecualian yang memang perlu menampilkan command; halaman konsep lain tidak berubah menjadi tutorial panjang.
+Gunakan logo Bruno, NestJS, Prisma, PostgreSQL, Node.js, dan pnpm pada konteks yang tepat. Logo membantu orientasi tetapi tidak menggantikan penjelasan. Bila halaman menampilkan HTTP atau command, pakai jendela IDE dengan label file/terminal, syntax color, dan ukuran huruf yang terbaca dari belakang ruangan. Slide 10 dan 11 adalah pengecualian yang memang perlu menampilkan command; halaman konsep lain tidak berubah menjadi tutorial panjang.
 
-Visual prioritas: slide 4 memperlihatkan batas Frontend, Backend, dan Database; slide 5 menjelaskan NestJS secara umum; slide 6 memakai analogi restoran; slide 15 menjelaskan Module, Controller, dan Service; slide 16 memperlihatkan alur Request; slide 18 menjelaskan Prisma; slide 19 membandingkan input valid dan tidak valid; slide 21 mengantar praktik.
+Visual prioritas: slide 4 memperlihatkan batas Frontend, Backend, dan Database; slide 5 menjelaskan NestJS secara umum; slide 6 memakai analogi struk; slide 7 menggambarkan bagian dalam restoran; slide 16 menjelaskan Module, Controller, dan Service; slide 17 memperlihatkan alur Request; slide 19 menjelaskan Prisma; slide 20 membandingkan input valid dan tidak valid; slide 22 mengantar praktik.
 
 ---
 
