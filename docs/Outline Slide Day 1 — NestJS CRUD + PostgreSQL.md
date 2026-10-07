@@ -7,6 +7,10 @@
 
 Presentasi ini **bukan sesi coding**. Tujuannya adalah membangun pemahaman dan mental model peserta sebelum masuk ke sesi live coding.
 
+**Acuan materi:** alur latihan di [`day-1-starter` → `day-1-checkpoint`](./day-1-nestjs-crud-postgresql.md). `backend/` pada `main` sudah memuat hasil Day 3: JWT, relasi `User`, dan pembatasan task berdasarkan `userId`. Untuk slide pembuka Day 1, pakai bentuk Task dan lima endpoint CRUD dari checkpoint Day 1; sebut authentication hanya sebagai kelanjutan Day 3. Jangan mengambil screenshot respons `/tasks` dari `main` tanpa login lalu menyebutnya hasil Day 1.
+
+**Cara memakai outline untuk membuat deck:** bagian *Isi Slide* dan *Visual* adalah bahan yang ditampilkan; bagian *Yang Disampaikan* menjadi speaker notes. Pilih satu pesan utama per slide agar 18 slide tetap muat dalam 20–25 menit. Contoh request/response di bawah adalah ilustrasi kontrak, bukan hasil uji runtime yang baru dijalankan.
+
 Setelah presentasi selesai, peserta diharapkan memahami:
 
 - Apa yang akan dibangun pada Day 1.
@@ -81,6 +85,8 @@ Client
   ↓
 NestJS
   ↓
+Prisma
+  ↓
 PostgreSQL
 ```
 
@@ -101,6 +107,8 @@ Jelaskan bahwa Day 1 akan fokus pada backend.
 Setelah presentasi singkat ini, sesi akan dilanjutkan dengan live coding.
 
 Target akhirnya adalah membuat REST API sederhana yang benar-benar terhubung dengan PostgreSQL.
+
+Kalimat pembuka yang lebih dekat dengan proyek: “Hari ini kita membuat API untuk mencatat task workshop. Setelah tombol buat, ubah, atau hapus hadir di frontend pada Day 2, request-nya akan masuk ke backend yang kita pahami hari ini.”
 
 Tekankan bahwa presentasi hanya akan membahas konsep dan gambaran besarnya.
 
@@ -128,6 +136,8 @@ Backend yang dapat:
 - Menyimpan data ke PostgreSQL.
 - Melakukan validasi request.
 - Menangani error API sederhana.
+
+Contoh task yang akan dikelola: `Belajar NestJS` dengan status awal `completed: false`. Pada Day 1, semua task berada dalam satu daftar bersama; kepemilikan per user baru ditambahkan pada Day 3.
 
 ## Visual yang Disarankan
 
@@ -212,6 +222,8 @@ Day 2 baru masuk ke sisi frontend menggunakan Next.js.
 
 Day 3 akan menambahkan authentication dan security ke API yang sebelumnya sudah dibuat.
 
+Perlihatkan satu task yang sama melintasi sesi: Day 1 membuat dan membaca data lewat Bruno, Day 2 menampilkan dan mengubahnya lewat Next.js, Day 3 mengaitkan task dengan user yang login. Cukup satu kalimat untuk Day 3; detail JWT bukan fokus presentasi ini.
+
 Jelaskan bahwa pemisahan ini sengaja dilakukan agar peserta memahami setiap layer secara bertahap.
 
 ---
@@ -268,6 +280,8 @@ PostgreSQL
 Next.js tidak berkomunikasi langsung dengan PostgreSQL.
 
 NestJS menjadi application layer di antara frontend dan database.
+
+Contoh konkret: ketika nanti pengguna mencentang task sebagai selesai di UI, frontend mengirim `PATCH /tasks/:id` dengan `{ "completed": true }`. Backend yang memproses perubahan, lalu PostgreSQL menyimpan nilai baru.
 
 ---
 
@@ -353,6 +367,8 @@ Tekankan:
 
 NestJS hanya memberikan struktur dan tools yang membantu kita menjaga separation of concerns.
 
+Hubungkan langsung dengan folder latihan: `TasksModule` mengelompokkan fitur, `TasksController` menerima route `/tasks`, dan `TasksService` mengerjakan operasi Task. Nama-nama ini akan muncul kembali saat live coding.
+
 ---
 
 # Slide 6 — Kenapa Saya Menggunakan NestJS di Project Nyata?
@@ -375,10 +391,8 @@ Tech stack:
 Next.js
    ↓
 NestJS
-   ↓
-PostgreSQL
-   ↕
-Redis
+   ├──→ PostgreSQL
+   └──→ Redis
 ```
 
 Contoh fakta yang bisa ditampilkan:
@@ -388,6 +402,8 @@ Contoh fakta yang bisa ditampilkan:
 - Menggunakan Next.js dan NestJS.
 - PostgreSQL sebagai database.
 - Redis untuk kebutuhan caching tertentu.
+
+Angka penggunaan, screenshot, dan detail arsitektur project pribadi pada slide ini perlu dikonfirmasi sendiri oleh pemateri sebelum dipublikasikan; semuanya adalah bahan cerita personal, bukan fakta yang diperiksa dari repository workshop.
 
 ## Visual yang Disarankan
 
@@ -412,6 +428,8 @@ Contoh poin yang bisa disampaikan:
 Kemudian hubungkan dengan workshop:
 
 > Project kita hari ini memang jauh lebih kecil. Kita hanya membuat Task Management API. Tetapi konsep dasar yang dipakai tetap sama.
+
+Jembatan ke kode workshop: tunjukkan tiga kotak kecil `TasksModule`, `TasksController`, `TasksService`, lalu lanjut ke slide tools. Tidak perlu membahas Redis lebih jauh.
 
 ---
 
@@ -458,6 +476,8 @@ Saat live coding baru lakukan pengecekan seperti:
 - PostgreSQL berjalan?
 - Bruno tersedia?
 
+Konteks proyek ini: API lokal pada contoh env berjalan di `http://localhost:3001`; Bruno mengirim request ke sana. Nomor port cukup menjadi label kecil, bukan instruksi instalasi di slide.
+
 ---
 
 # Slide 8 — Apa Itu API?
@@ -479,7 +499,7 @@ Client
    |
    | POST /tasks
    |
-   | title: "Belajar NestJS"
+   | { "title": "Belajar NestJS" }
    ↓
 Backend
    |
@@ -491,7 +511,10 @@ Backend memberikan response:
 
 ```text
 201 Created
+{ "id": 7, "title": "Belajar NestJS", "completed": false, ... }
 ```
+
+`id: 7` hanya contoh. Saat demo, gunakan ID yang benar-benar dikembalikan API.
 
 ## Yang Disampaikan
 
@@ -511,8 +534,11 @@ Frontend hanya perlu mengetahui **API contract**.
 
 Contoh:
 
-```text
-POST /tasks
+```http
+POST http://localhost:3001/tasks
+Content-Type: application/json
+
+{"title":"Belajar NestJS","description":"Workshop Day 1"}
 ```
 
 berarti backend menyediakan cara untuk membuat sebuah task.
@@ -553,9 +579,8 @@ Content-Type: application/json
 
 ### Body
 
-```text
-title       : Belajar NestJS
-description : Workshop Day 1
+```json
+{"title":"Belajar NestJS","description":"Workshop Day 1"}
 ```
 
 ## Yang Disampaikan
@@ -578,6 +603,8 @@ Hari ini kita terutama menggunakan:
 - PATCH.
 - DELETE.
 
+Untuk `GET /tasks/7`, angka `7` adalah *path parameter*; untuk `POST /tasks`, JSON berada di body. Query parameter cukup disebut sebagai bagian umum HTTP, karena CRUD Day 1 belum memakai filter atau pagination.
+
 ---
 
 # Slide 10 — CRUD dan HTTP Method
@@ -595,6 +622,8 @@ Menghubungkan konsep CRUD dengan REST API.
 | Read One | GET | `/tasks/:id` |
 | Update | PATCH | `/tasks/:id` |
 | Delete | DELETE | `/tasks/:id` |
+
+Contoh perubahan yang akan dicoba: `PATCH /tasks/7` dengan `{ "completed": true }`. Angka `7` tetap contoh; ID saat latihan diambil dari respons POST, bukan diasumsikan selalu 1 atau 7.
 
 ## Yang Disampaikan
 
@@ -645,7 +674,6 @@ Memperkenalkan response status yang akan ditemukan saat testing API.
 |---:|---|---|
 | 200 | OK | Data berhasil dibaca atau diubah |
 | 201 | Created | Resource berhasil dibuat |
-| 204 | No Content | Delete berhasil |
 | 400 | Bad Request | Request client tidak valid |
 | 404 | Not Found | Resource tidak ditemukan |
 | 500 | Internal Server Error | Terjadi error pada server |
@@ -680,6 +708,8 @@ berarti ada error yang tidak seharusnya terjadi di sisi server.
 Tekankan bahwa input buruk seharusnya tidak dibiarkan masuk sampai menghasilkan error 500.
 
 Konsep ini akan kembali muncul ketika kita membahas validation.
+
+Jangkar ke checkpoint Day 1: `POST /tasks` valid menghasilkan `201`; body tanpa `title` menghasilkan `400`; `GET /tasks/:id` yang tidak ditemukan menghasilkan `404`; `DELETE /tasks/:id` yang berhasil menghasilkan `200` beserta task yang dihapus. `204` adalah status HTTP yang sah secara umum, tetapi bukan respons DELETE implementasi Day 1 ini. Jangan menjanjikan `404` untuk `PATCH` ID yang hilang pada checkpoint Day 1, karena error Prisma di sana belum diterjemahkan secara eksplisit.
 
 ---
 
@@ -774,6 +804,8 @@ Peserta tidak perlu menghafal decorator atau syntax pada titik ini.
 
 Yang penting memahami responsibility setiap layer.
 
+Tunjuk peta file tanpa menampilkan source code: `backend/src/tasks/tasks.module.ts` menghubungkan controller dan service; controller menentukan route; service memanggil `PrismaService` yang disediakan `PrismaModule`. `AppModule` memasang feature module ke aplikasi.
+
 ---
 
 # Slide 13 — Alur Request di Aplikasi Kita
@@ -789,15 +821,13 @@ Gunakan diagram besar:
 ```text
 HTTP Request
      ↓
-Controller
+Pencocokan route TasksController
      ↓
-DTO / Validation
+DTO + ValidationPipe untuk body / ParseIntPipe untuk id
      ↓
-Service
+Method controller → TasksService
      ↓
-Prisma
-     ↓
-PostgreSQL
+PrismaService → PostgreSQL
 ```
 
 Response kembali melalui jalur yang sama:
@@ -820,13 +850,12 @@ HTTP Response
 POST /tasks
 ```
 
-1. Client mengirim request.
-2. Controller menerima request.
-3. Data request divalidasi.
-4. Service menjalankan logic.
-5. Prisma melakukan operasi database.
-6. PostgreSQL menyimpan data.
-7. Result dikembalikan ke client.
+1. Bruno mengirim `POST /tasks` dengan body JSON.
+2. Nest mencocokkan route pada `TasksController`.
+3. `ValidationPipe` memeriksa `CreateTaskDto` sebelum method controller dijalankan.
+4. Controller meneruskan data ke `TasksService`.
+5. Service memanggil `PrismaService.task.create()`.
+6. PostgreSQL menyimpan task; hasilnya kembali sebagai respons `201`.
 
 ## Yang Disampaikan
 
@@ -837,6 +866,8 @@ Kalau peserta bingung:
 > "Sekarang kita sedang membuat bagian apa?"
 
 Mereka bisa kembali melihat flow ini.
+
+Saat membahas `GET /tasks/:id`, ganti contoh validasi body dengan `ParseIntPipe` untuk ID. Pada tahap awal live coding, bagian DTO dan PostgreSQL belum dipasang; diagram menunjukkan alur yang akan lengkap pada akhir Day 1.
 
 ---
 
@@ -903,6 +934,8 @@ Jika Prisma dihapus, PostgreSQL tetap merupakan database.
 
 Prisma berada di antara aplikasi dan database agar kita dapat mengakses data dengan API yang lebih nyaman dan type-safe.
 
+Contoh dari proyek: model `Task` didefinisikan di `backend/prisma/schema.prisma`; migrasi membuat tabel PostgreSQL; `PrismaService.task.create()` dan `findMany()` dipakai service untuk menulis dan membaca. Gunakan contoh ini sebagai penjelasan lisan, tanpa menampilkan isi schema atau kode query di slide.
+
 ---
 
 # Slide 15 — Kenapa Kita Membutuhkan Validation?
@@ -915,26 +948,23 @@ Mempersiapkan peserta untuk eksperimen POST tanpa DTO pada sesi live coding.
 
 ### Request Valid
 
-```text
-title       : "Belajar NestJS"
-description : "Workshop Day 1"
+```json
+{"title":"Belajar NestJS","description":"Workshop Day 1"}
 ```
 
 ### Request Tidak Valid
 
-```text
-title       : 123
-description : object
-randomField : true
+```json
+{"title":123,"description":{},"randomField":true}
 ```
 
 Pertanyaan utama:
 
-> Apakah kedua request tersebut boleh sampai ke database?
+> Request mana yang boleh diteruskan ke service dan database?
 
 Jawaban:
 
-**Tidak.**
+Hanya request valid. Request kedua harus ditolak sebelum operasi database.
 
 ## Visual
 
@@ -974,6 +1004,8 @@ Dari situ peserta dapat melihat sendiri:
 
 Baru setelah problem terlihat, kita memperbaikinya menggunakan DTO dan ValidationPipe.
 
+Dalam checkpoint Day 1, `CreateTaskDto` meminta `title` berupa string yang tidak kosong (maksimal 120 karakter); `description` opsional dan maksimal 500 karakter. `ValidationPipe` global menolak field asing. Jelaskan perbedaan *tipe TypeScript saat menulis kode* dan *validasi JSON saat request berjalan* secara lisan. Hindari janji bahwa semua input bermasalah sudah tertangani: judul berisi spasi saja dan beberapa kasus PATCH masih menjadi bahan hardening.
+
 ---
 
 # Slide 16 — Task Data Model
@@ -990,8 +1022,8 @@ Memperkenalkan bentuk data sebelum membuat API.
 |---|---|---|
 | id | Integer | Dibuat otomatis |
 | title | String | Wajib |
-| description | String | Opsional |
-| isCompleted | Boolean | Default `false` |
+| description | String? | Opsional, dapat kosong/null di database |
+| completed | Boolean | Default `false` |
 | createdAt | DateTime | Dibuat otomatis |
 | updatedAt | DateTime | Diperbarui otomatis |
 
@@ -1021,6 +1053,8 @@ API Design
 Implementation
 ```
 
+Contoh yang mudah diingat: task baru dengan judul “Belajar NestJS” otomatis mendapat `id`, `completed: false`, `createdAt`, dan `updatedAt`. Pada Day 1 belum ada `userId`; field itu baru masuk bersama relasi `User` di Day 3. Gunakan nama `completed`, sesuai schema dan API, bukan `isCompleted`.
+
 ---
 
 # Slide 17 — Roadmap Live Coding
@@ -1032,29 +1066,19 @@ Memberikan gambaran perjalanan praktikum tanpa memberikan tutorial coding di sli
 ## Isi Slide
 
 ```text
-1. Cek environment
+1. Mulai dari day-1-starter; cek environment dan PostgreSQL
         ↓
-2. Buat project NestJS
+2. GET /tasks dengan data statis → pindah ke TasksService
         ↓
-3. Setup PostgreSQL + Prisma
+3. POST sederhana → kirim input buruk → temukan kebutuhan validasi
         ↓
-4. Buat Tasks Module
+4. Tambahkan DTO + ValidationPipe
         ↓
-5. Buat endpoint POST pertama
+5. Kenali schema, migrasi, PrismaService; ganti array dengan database
         ↓
-6. Buat Service + simpan ke database
+6. GET detail → PATCH → DELETE; uji ulang lewat Bruno
         ↓
-7. Testing menggunakan Bruno
-        ↓
-8. Temukan masalah tanpa DTO
-        ↓
-9. Tambahkan DTO + Validation
-        ↓
-10. Selesaikan CRUD
-        ↓
-11. Hardening endpoint
-        ↓
-12. Database Seed & Reset
+7. Bahas batas implementasi; seed hanya bila diperlukan
 ```
 
 ## Yang Disampaikan
@@ -1081,6 +1105,8 @@ Sampaikan bahwa beberapa implementasi awal sengaja dibuat belum ideal.
 
 Tujuannya agar peserta memahami **kenapa** sebuah pattern digunakan, bukan hanya menyalin syntax.
 
+Panduan Day 1 memakai kerangka Nest dan model/migrasi Task yang sudah ada di `day-1-starter`; jangan menjanjikan membuat proyek dari nol atau melakukan reset database sebagai bagian wajib. Saat demo, perubahan dari array sementara ke PostgreSQL adalah momen penting: request yang sama kini menghasilkan data yang tetap ada setelah server direstart.
+
 ---
 
 # Slide 18 — Mental Model yang Perlu Diingat
@@ -1096,13 +1122,13 @@ Gunakan diagram besar dan sederhana:
 ```text
 Client
   ↓
-Controller
+Route TasksController
   ↓
-DTO / Validation
+DTO / ValidationPipe
   ↓
-Service
+TasksService
   ↓
-Prisma
+PrismaService
   ↓
 PostgreSQL
 ```
@@ -1133,6 +1159,8 @@ Ketika sebuah request masuk ke backend, peserta harus dapat membayangkan:
 Setelah itu:
 
 **Pindah ke VS Code dan mulai live coding.**
+
+Transisi lisan yang dapat dipakai: “Sekarang kita mulai dari route paling sederhana. Nanti kita ikuti satu task bernama `Belajar NestJS` dari request Bruno, melewati controller dan service, sampai benar-benar tersimpan di PostgreSQL.”
 
 ---
 
