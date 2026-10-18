@@ -255,22 +255,62 @@ const Tools: Page = () => (
 
 const Preflight: Page = () => (
   <Canvas label="Preflight">
-    <Title size={80} style={{ marginTop: 100 }}>Cek environment dulu.</Title>
+    <Title size={80} style={{ marginTop: 100 }}>Cek dulu yang sudah ada.</Title>
     <div style={{ position: 'absolute', left: 110, top: 319, width: 793 }}><CodeWindow title="macOS Terminal" style={{ height: 462 }}>
       <CodeLine n="1"><Cmd>node</Cmd> --version</CodeLine>
       <CodeLine n="2"><Cmd>npm</Cmd> --version</CodeLine>
       <CodeLine n="3"><Cmd>git</Cmd> --version</CodeLine>
-      <CodeLine n="4"><Cmd>docker</Cmd> --version</CodeLine>
-      <CodeLine n="5"><Dim># Docker untuk PostgreSQL lokal saja</Dim></CodeLine>
+      <CodeLine n="4"><Cmd>brew</Cmd> services list</CodeLine>
+      <CodeLine n="5"><Dim># cek PostgreSQL 17 di Mac</Dim></CodeLine>
     </CodeWindow></div>
     <div style={{ position: 'absolute', right: 110, top: 319, width: 793 }}><CodeWindow title="Windows PowerShell" style={{ height: 462 }}>
       <CodeLine n="1"><Cmd>node</Cmd> --version</CodeLine>
       <CodeLine n="2"><Cmd>npm</Cmd> --version</CodeLine>
       <CodeLine n="3"><Cmd>git</Cmd> --version</CodeLine>
-      <CodeLine n="4"><Cmd>docker</Cmd> --version</CodeLine>
-      <CodeLine n="5"><Dim># Docker untuk PostgreSQL lokal saja</Dim></CodeLine>
+      <CodeLine n="4"><Cmd>pg_isready</Cmd> -h localhost -p 5432</CodeLine>
+      <CodeLine n="5"><Dim># baris 4 untuk PostgreSQL lokal</Dim></CodeLine>
     </CodeWindow></div>
-    <div style={{ position: 'absolute', left: 118, top: 833, fontSize: 30, fontWeight: 700 }}>Node.js 20.19+ atau 22.12+ atau 24+ <span style={{ color: electric, padding: '0 16px' }}>·</span> PostgreSQL siap sebelum migrasi</div>
+    <div style={{ position: 'absolute', left: 118, top: 833, fontSize: 27, fontWeight: 700 }}>Node.js 20.19+ / 22.12+ / 24+ <span style={{ color: electric, padding: '0 15px' }}>·</span> Kalau belum ada, lihat cara pasangnya di dua slide berikutnya.</div>
+  </Canvas>
+);
+
+const MacInstall: Page = () => (
+  <Canvas label="Instalasi macOS" bg={peachDeep}>
+    <Title size={76} style={{ marginTop: 100 }}>Pakai Mac? PostgreSQL lewat brew aja.</Title>
+    <div style={{ position: 'absolute', left: 116, top: 318, width: 910 }}>
+      <div style={{ borderTop: '4px solid ' + electric, paddingTop: 20, height: 138 }}><span style={{ fontFamily: display, fontSize: 43, color: electric }}>01</span><strong style={{ fontSize: 39, marginLeft: 24 }}>Node.js LTS</strong><div style={{ fontSize: 28, marginLeft: 93 }}>Unduh installer .pkg di nodejs.org/en/download</div></div>
+      <div style={{ borderTop: '3px solid ' + blueInk, paddingTop: 20, height: 138 }}><span style={{ fontFamily: display, fontSize: 43, color: pink }}>02</span><strong style={{ fontSize: 39, marginLeft: 24 }}>Git</strong><div style={{ fontSize: 28, marginLeft: 93 }}>Jalankan xcode-select --install bila belum ada.</div></div>
+      <div style={{ borderTop: '3px solid ' + blueInk, paddingTop: 20, height: 160 }}><span style={{ fontFamily: display, fontSize: 43, color: electric }}>03</span><strong style={{ fontSize: 39, marginLeft: 24 }}>PostgreSQL 17</strong><div style={{ fontSize: 28, lineHeight: 1.3, marginLeft: 93 }}>Install dan jalankan servicenya lewat brew.<br />Kalau brew belum ada, pasang dulu dari brew.sh.</div></div>
+    </div>
+    <div style={{ position: 'absolute', right: 108, top: 335, width: 675 }}><CodeWindow title="Terminal · PostgreSQL 17" style={{ height: 396 }}>
+      <CodeLine n="1" size={25}><Cmd>brew</Cmd> --version</CodeLine>
+      <CodeLine n="2" size={25}><Cmd>brew</Cmd> install <Str>postgresql@17</Str></CodeLine>
+      <CodeLine n="3" size={25}><Cmd>brew</Cmd> services start <Str>postgresql@17</Str></CodeLine>
+      <CodeLine n="4" size={25}><Cmd>brew</Cmd> services list</CodeLine>
+      <div style={{ margin: '16px 0 0 55px', color: '#91aabd', fontSize: 21 }}>Status postgresql@17: started.</div>
+    </CodeWindow></div>
+    <div style={{ position: 'absolute', right: 112, top: 765, width: 664, fontSize: 26, lineHeight: 1.35, color: muted }}>Homebrew: brew.sh</div>
+    <div style={{ position: 'absolute', left: 119, top: 860, fontSize: 29, fontWeight: 700 }}>Buat database task_management, lalu sesuaikan DATABASE_URL di backend/.env.</div>
+  </Canvas>
+);
+
+const WindowsInstall: Page = () => (
+  <Canvas label="Instalasi Windows">
+    <Title size={76} style={{ marginTop: 100 }}>Pakai Windows? Ini yang perlu dipasang.</Title>
+    <div style={{ position: 'absolute', left: 110, top: 331, width: 655 }}><CodeWindow title="PowerShell · verifikasi" style={{ height: 402 }}>
+      <CodeLine n="1" size={25}><Cmd>node</Cmd> --version</CodeLine>
+      <CodeLine n="2" size={25}><Cmd>npm</Cmd> --version</CodeLine>
+      <CodeLine n="3" size={25}><Cmd>git</Cmd> --version</CodeLine>
+      <CodeLine n="4" size={25}><Cmd>pg_isready</Cmd> -h localhost</CodeLine>
+      <div style={{ margin: '16px 0 0 55px', color: '#91aabd', fontSize: 20 }}>Buka PowerShell baru setelah instalasi.</div>
+    </CodeWindow></div>
+    <div style={{ position: 'absolute', right: 109, top: 313, width: 960 }}>
+      <div style={{ borderTop: '4px solid ' + pink, paddingTop: 16, height: 140 }}><span style={{ fontFamily: display, fontSize: 43, color: pink }}>01</span><strong style={{ fontSize: 38, marginLeft: 22 }}>Node.js LTS</strong><div style={{ fontSize: 27, marginLeft: 91 }}>Unduh .msi di nodejs.org/en/download; jalankan installer.</div></div>
+      <div style={{ borderTop: '3px solid ' + blueInk, paddingTop: 16, height: 137 }}><span style={{ fontFamily: display, fontSize: 43, color: electric }}>02</span><strong style={{ fontSize: 38, marginLeft: 22 }}>Git for Windows</strong><div style={{ fontSize: 27, marginLeft: 91 }}>Unduh installer di git-scm.com/install/windows.</div></div>
+      <div style={{ borderTop: '3px solid ' + blueInk, paddingTop: 16, height: 169 }}><span style={{ fontFamily: display, fontSize: 43, color: pink }}>03</span><strong style={{ fontSize: 38, marginLeft: 22 }}>PostgreSQL 17</strong><div style={{ fontSize: 27, lineHeight: 1.3, marginLeft: 91 }}>Pilih server, pgAdmin, dan Command Line Tools.<br />Simpan password postgres; pakai port 5432.</div></div>
+    </div>
+    <div style={{ position: 'absolute', left: 118, top: 786, fontSize: 25, color: muted }}>Installer: postgresql.org/download/windows/</div>
+    <div style={{ position: 'absolute', left: 118, top: 862, fontSize: 28, fontWeight: 700 }}>Buat database task_management, lalu isi DATABASE_URL di backend/.env.</div>
   </Canvas>
 );
 
@@ -484,8 +524,10 @@ export const notes: (string | undefined)[] = [
   `Durasi ±1 menit. Bayangkan kita memesan Task berjudul Belajar NestJS di sebuah restoran. TasksModule menyiapkan tim untuk layanan Task. TasksController seperti kasir yang mengenali pesanan POST /tasks. TasksService seperti dapur yang mengerjakan operasi pembuatan Task. Jika perlu menyimpan hasilnya, Service memakai PrismaService. Ini analogi untuk tanggung jawab tiap bagian, bukan urutan teknis yang persis. Dalam aplikasi, ValidationPipe memeriksa input sebelum method Controller dijalankan. Module tidak menangani setiap Request satu per satu, dan Controller tidak menyimpan data sendiri.`,
   `Durasi ±1 menit. Lihat restoran dari dalam. TasksModule seperti bangunan yang menyiapkan tempat bagi dua peran: TasksController di loket dan TasksService di dapur. Loket mengenali POST /tasks dan menerima pesanan yang masuk. Dapur mengerjakan operasi membuat Task. Module mendaftarkan Controller dan Service agar Nest tahu bagian mana yang bekerja bersama. Dalam kode, Module bukan ruangan fisik dan tidak memproses setiap Request. ValidationPipe memeriksa input sebelum method Controller berjalan. Saat perlu menyimpan hasilnya, Service memakai PrismaService; detail itu akan kita lihat nanti.`,
   `Durasi ±1 menit. Ini bahan cerita pribadi pemateri dari Financial Management System Koperasi Kamorina Surya Niaga. Sebelum menampilkan deck ke publik, pemateri perlu mengonfirmasi sendiri nama dan arsitektur proyek pribadi ini; keduanya tidak diperiksa dari repository workshop. Ceritakan satu contoh ketika fitur bertambah dan module membantu menjaga struktur, controller tetap menangani HTTP, serta service menampung logika aplikasi. Jangan menambahkan klaim jumlah pengguna tanpa bukti. Hubungkan kembali ke TasksModule, TasksController, dan TasksService yang jauh lebih kecil tetapi memakai pola yang sama.`,
-  `Durasi ±1 menit. Sebut peran tiap tool secara singkat. Node.js menjalankan aplikasi, pnpm mengelola paket, NestJS menyajikan API, Prisma menjadi alat akses data, PostgreSQL menyimpan data, Bruno mengirim request, dan editor dipakai menulis kode. Contoh API lokal ada di port 3001 sesuai konfigurasi latihan. Peserta boleh memakai Windows, Linux, atau macOS; proses instalasi tidak dibahas di presentasi ini.`,
-  `Durasi ±1 menit. Minta peserta membuka macOS Terminal atau Windows PowerShell. Cek versi Node, npm, dan Git. Node harus cocok dengan syarat repo: 20.19 ke atas, 22.12 ke atas, atau 24 ke atas. Docker hanya diperlukan bila memakai PostgreSQL lokal via Docker; peserta yang memakai database panitia tidak wajib memasangnya. Perintah docker --version hanya membuktikan CLI tersedia, belum membuktikan Engine atau database sudah berjalan. Hasil di slide hanya contoh. Pemeriksaan mesin peserta dilakukan saat praktik, sebelum install package dan migrasi.`,
+  `Durasi ±1 menit. Sebut peran tiap tool secara singkat. Node.js menjalankan aplikasi, pnpm mengelola paket, NestJS menyajikan API, Prisma menjadi alat akses data, PostgreSQL menyimpan data, Bruno mengirim request, dan editor dipakai menulis kode. Contoh API lokal ada di port 3001 sesuai konfigurasi latihan. Peserta boleh memakai Windows, Linux, atau macOS. Dua halaman setelah Preflight memberi langkah instalasi khusus macOS dan Windows.`,
+  `Durasi ±1 menit. Buka Terminal atau PowerShell, lalu cek Node, npm, dan Git. Kalau versinya sudah sesuai, lanjut. Repo ini butuh Node 20.19 ke atas, 22.12 ke atas, atau 24 ke atas. Di Mac, brew services list menunjukkan apakah PostgreSQL 17 sudah berjalan. Di Windows, pg_isready -h localhost -p 5432 mengecek respons server lokal. Keduanya belum membuktikan username, password, dan nama database benar. Kalau database disediakan panitia, pakai DATABASE_URL yang mereka berikan.`,
+  `Durasi ±1 sampai 2 menit. Di Mac, Node LTS bisa diunduh dari https://nodejs.org/en/download sebagai file .pkg. Setelah instalasi, buka Terminal baru dan cek node --version serta npm --version. Kalau Git belum ada, jalankan xcode-select --install, selesaikan dialognya, lalu cek git --version. Untuk PostgreSQL 17, cek dulu brew --version. Kalau brew belum ada, pasang dari https://brew.sh dan ikuti petunjuk PATH yang muncul setelah instalasi. Setelah itu jalankan brew install postgresql@17, lalu brew services start postgresql@17. Cek brew services list; postgresql@17 mestinya berstatus started. Formula ini keg-only, jadi psql mungkin belum langsung dikenali dari Terminal. Jalankan psql lewat path dari brew --prefix postgresql@17, misalnya $(brew --prefix postgresql@17)/bin/psql postgres. Di psql, jalankan CREATE ROLE workshop LOGIN PASSWORD 'workshop_local_only'; lalu CREATE DATABASE task_management OWNER workshop; sebagai dua perintah terpisah. Password itu hanya contoh untuk database latihan di laptop sendiri. Di backend/.env pada worktree latihan, pakai DATABASE_URL="postgresql://workshop:workshop_local_only@localhost:5432/task_management?schema=public". Contoh .env bawaan repo memakai port 5433, jadi ubah ke 5432 jika server brew memakai port default. Kalau port 5432 sudah dipakai PostgreSQL lain, cek server yang aktif sebelum mengubah URL. Jika panitia memberi database, cukup pakai URL mereka.`,
+  `Durasi ±1 sampai 2 menit. Di Windows, Node LTS diunduh dari https://nodejs.org/en/download sebagai file .msi. Setelah installer selesai, buka PowerShell baru dan cek node --version serta npm --version. Untuk Git, ambil installer dari https://git-scm.com/install/windows, lalu cek git --version. Unduh PostgreSQL 17 dari https://www.postgresql.org/download/windows/. Di wizard, pilih Server, pgAdmin, dan Command Line Tools. Simpan password user postgres dan gunakan port 5432 kalau masih kosong. Buka pgAdmin, sambungkan ke server lokal, lalu di Query Tool pada database postgres jalankan CREATE ROLE workshop LOGIN PASSWORD 'workshop_local_only'; dan CREATE DATABASE task_management OWNER workshop; secara terpisah. Ini cuma kredensial latihan lokal. Installer Windows tidak otomatis menambahkan Command Line Tools ke PATH. Kalau pg_isready tidak dikenali, tambahkan folder bin PostgreSQL 17 dari direktori instalasi ke PATH, lalu buka PowerShell baru. Jalankan pg_isready -h localhost -p 5432. Di backend/.env pada worktree latihan, isi DATABASE_URL="postgresql://workshop:workshop_local_only@localhost:5432/task_management?schema=public". Contoh .env repo memakai port 5433, jadi sesuaikan dengan port installer. Kalau database disediakan panitia, pakai URL dari mereka.`,
   `Durasi ±1 menit. Repo mempunyai lockfile pnpm terpisah di backend dan frontend. Gunakan pnpm 10 agar instalasi kelas mengikuti versi package manager yang sama. Lockfile membantu mengunci resolusi dependency, dan shared store pnpm menghemat disk. Cek pnpm --version dahulu. Bila belum ada atau bukan versi 10, jalankan npm install --global pnpm@10 setelah Node dan npm lolos Preflight. Jalankan pnpm install --frozen-lockfile dari backend, bukan root repo. Jalankan semua perintah folder dari root repository. Jika instalasi global terhalang policy mesin, ikuti bantuan setup panitia.`,
   `Durasi ±1,5 menit. API adalah kontrak komunikasi antarsoftware. Bruno mengirim POST /tasks beserta JSON, backend mengembalikan respons 201 ketika Task dibuat. ID 7 pada slide hanya ilustrasi; saat demo ambil ID dari respons nyata. Client perlu mengetahui method, endpoint, body, dan respons; client tidak perlu mengetahui bentuk tabel atau query internal. API kita memakai HTTP, gaya REST, dan JSON.`,
   `Durasi ±1,5 menit. Pecah contoh request: POST ialah method, /tasks ialah endpoint, Content-Type memberitahu format body, dan JSON memuat data Task. GET /tasks/:id memakai angka pada path sebagai parameter. Kita akan memakai GET, POST, PATCH, dan DELETE. Query parameter adalah bagian umum HTTP, tetapi CRUD Day 1 belum memakai filter atau pagination.`,
@@ -506,4 +548,4 @@ export const meta: SlideMeta = {
   createdAt: '2026-10-07T03:31:11.667Z',
 };
 
-export default [Cover, Goal, Workshop, Backend, NestFundamental, NestAnalogy, NestStructureAnalogy, RealProject, Tools, Preflight, Pnpm, Api, Anatomy, Crud, Status, Organization, RequestFlow, Prisma, PrismaWorkflow, Validation, DataModel, Roadmap, Closing] satisfies Page[];
+export default [Cover, Goal, Workshop, Backend, NestFundamental, NestAnalogy, NestStructureAnalogy, RealProject, Tools, Preflight, MacInstall, WindowsInstall, Pnpm, Api, Anatomy, Crud, Status, Organization, RequestFlow, Prisma, PrismaWorkflow, Validation, DataModel, Roadmap, Closing] satisfies Page[];
