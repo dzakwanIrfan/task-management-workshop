@@ -237,7 +237,7 @@ Body: Hello World!
 
 Buka juga alamat tersebut di browser. Jika teks yang sama muncul, server lokal bisa diakses. `GET /tasks` belum tersedia pada starter ini; endpoint CRUD akan dibuat bersama saat workshop.
 
-Setelah selesai, hentikan server dengan **Ctrl+C** di terminal. Untuk menjalankannya lagi, buka terminal di folder `backend` dan jalankan `pnpm start:dev`. PostgreSQL harus tetap berjalan. Simpan clone ini untuk Day 1; pembukaan materi Day 1 akan menambahkan kode ke starter tersebut. Jika mengikuti pola worktree fasilitator di panduan sesi, salin konfigurasi database lokal ini ke worktree yang dipakai.
+Setelah selesai, hentikan server dengan **Ctrl+C** di terminal. Untuk menjalankannya lagi, buka terminal di folder `backend` dan jalankan `pnpm start:dev`. PostgreSQL harus tetap berjalan. Simpan clone ini untuk Day 1; pembukaan materi Day 1 akan menambahkan kode ke starter tersebut. Jika memakai folder latihan terpisah melalui worktree pada panduan sesi, salin konfigurasi database lokal ini ke worktree yang dipakai.
 
 Frontend baru diperlukan pada Day 2. Tidak adanya folder frontend pada starter Day 1 adalah kondisi yang benar. Perpindahan checkpoint Day 2/3 mengikuti [README utama](../README.md#mulai-dari-checkpoint-yang-tepat); setiap tahap mempunyai perubahan schema, jadi jangan menerapkan migrasi Day 3 ke data Day 1 yang ingin disimpan tanpa mengikuti panduannya.
 

@@ -1,0 +1,12 @@
+# Local OS metadata
+.DS_Store
+
+# Authoring tools belong to instructor-materials.
+.agents/
+.claude/
+.windsurf/
+AGENTS.md
+CLAUDE.md
+skills-lock.json
+/presentation-day-1/
+/docs/Outline Slide *.md

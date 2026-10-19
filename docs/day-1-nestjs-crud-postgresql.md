@@ -41,7 +41,7 @@ Client <─HTTP response── TasksController <── TasksService <── Pris
 Tag `day-1-checkpoint` sudah memuat implementasi Day 1. Untuk live coding dari awal tanpa mengubah implementasi acuan, siapkan **worktree terpisah** dari branch `day-1-starter` (commit `945c575`). Perintah ini memerlukan clone Git lengkap dengan branch workshop. Jika materi dibagikan sebagai ZIP, gunakan potongan tahap demi tahap sebagai demonstrasi dan bandingkan dengan tag checkpoint.
 
 ```bash
-# Jalankan dari root repository pada main, sekali saja untuk persiapan fasilitator.
+# Jalankan dari root repository pada main, sekali saja untuk membuat folder latihan.
 git worktree add -b practice/day-1 ../task-management-day1-starter origin/day-1-starter
 cp backend/.env.example ../task-management-day1-starter/backend/.env
 cd ../task-management-day1-starter/backend

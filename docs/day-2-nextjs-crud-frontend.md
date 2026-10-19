@@ -967,7 +967,7 @@ Bedakan pula `loading` dari empty state: saat `loading=true`, hasil GET belum di
 
 Pada akhir Day 2, browser masih dapat meminta seluruh Task tanpa identitas. Day 3 menambahkan register, login, JWT pada request, dan filter Task berdasarkan ID user yang diverifikasi NestJS. Panduan Day 3 berangkat dari checkout utama sebelum perapian Day 2 ini. Jika peserta meneruskan hasil latihannya, bagian Day 3 yang kembali membahas error form atau PATCH ganda dapat dibaca sebagai pemeriksaan terhadap kode yang sudah dibuat; fokus perubahan berikutnya adalah authentication dan ownership. Kontrak props contoh akhir Day 2 sudah cocok dengan halaman pengganti Day 3.
 
-## Referensi untuk fasilitator
+## Referensi lanjutan
 
 - [Next.js: Server and Client Components](https://nextjs.org/docs/app/getting-started/server-and-client-components) — batas `"use client"` dan interaksi browser.
 - [Next.js: Environment Variables](https://nextjs.org/docs/app/guides/environment-variables) — aturan `NEXT_PUBLIC_`.

@@ -1,10 +1,27 @@
 # Task Management Workshop
 
-Repository utama untuk live coding **Day 1–3**: NestJS + Prisma + PostgreSQL, Next.js, lalu authentication JWT dan Task milik masing-masing user. Backend dan frontend adalah dua proyek `pnpm` terpisah; jalankan perintah dari direktorinya masing-masing.
+Repository peserta workshop **Day 1–3**: NestJS + Prisma + PostgreSQL, Next.js, lalu authentication JWT dan Task milik masing-masing user. Branch `main` berisi aplikasi acuan akhir, panduan latihan, dan API collection. Backend dan frontend adalah dua proyek `pnpm` terpisah; jalankan perintah dari direktorinya masing-masing.
 
 **Peserta baru:** selesaikan [Environment Setup Guide](docs/environment-setup-guide.md) sebelum workshop. Panduan mencakup instalasi tools, akun GitHub, database lokal, uji API, dan checklist kesiapan.
 
 **Uji API cepat:** buka [Bruno collection + contoh environment](bruno/README.md) untuk menjalankan register, login, CRUD Task, dan cek akses antar-user tanpa menyalin token secara manual.
+
+## Susunan repository
+
+| Lokasi di `main` | Isi untuk peserta |
+| --- | --- |
+| `backend/` | API NestJS, Prisma, migrasi, seed, dan contoh environment |
+| `frontend/` | Aplikasi Next.js dan contoh environment |
+| `bruno/` | Request API, pengujian otomatis, dan contoh environment Bruno |
+| `docs/` | Setup laptop, panduan latihan Day 1–3, dan deployment uji |
+
+Versi lengkap sebelum pemisahan, termasuk project presentasi, outline, catatan pembicara dalam slide, dan konfigurasi authoring, disimpan pada branch [`instructor-materials`](https://github.com/dzakwanIrfan/task-management-workshop/tree/instructor-materials). Untuk membuka materi tersebut dalam folder terpisah:
+
+```bash
+git clone --branch instructor-materials https://github.com/dzakwanIrfan/task-management-workshop.git task-management-workshop-instructor
+```
+
+Gunakan `main` untuk dokumentasi peserta terbaru. Branch starter dan tag checkpoint tetap menyediakan titik awal serta hasil historis setiap sesi.
 
 ## Mulai dari checkpoint yang tepat
 
@@ -14,7 +31,7 @@ Repository utama untuk live coding **Day 1–3**: NestJS + Prisma + PostgreSQL, 
 | Day 2 — UI Next.js dan CRUD | `day-2-starter` | `day-2-checkpoint` | [Panduan Day 2](docs/day-2-nextjs-crud-frontend.md) |
 | Day 3 — register, login, JWT, ownership | `day-3-starter` | `day-3-checkpoint` | [Panduan Day 3](docs/day-3-auth-nextjs-nestjs.md) |
 
-`main` dan branch `final-reference` berisi acuan akhir Day 3, contoh environment, dan dokumentasi ini. Tag checkpoint menunjuk commit historis pada akhir sesi, bukan salinan dokumentasi terbaru. Lihat materi di `main` sambil mengerjakan branch latihan.
+`main` berisi acuan akhir Day 3, contoh environment, Bruno collection, dan dokumentasi peserta terbaru. Branch `final-reference` adalah acuan akhir historis sebelum pemisahan materi dan tidak otomatis mengikuti pembaruan `main`. Tag checkpoint menunjuk commit historis pada akhir sesi. Lihat materi di `main` sambil mengerjakan branch latihan.
 
 Peta Git:
 
@@ -25,10 +42,12 @@ day-2-starter     2504228  Proyek Next.js sudah ada; halaman awal akan ditulis u
 day-2-checkpoint  69af26d  UI CRUD sebelum authentication
 day-3-starter     69af26d  Titik awal perubahan authentication
 day-3-checkpoint  6a33d39  JWT + Task per user
-final-reference   main     Day 3 + dokumentasi dan contoh environment terbaru
+final-reference  0d03ad5  Acuan akhir historis Day 3
+main                     Aplikasi akhir + dokumentasi peserta terbaru
+instructor-materials     Snapshot lengkap sebelum pemisahan materi fasilitator
 ```
 
-Contoh untuk fasilitator yang ingin menjaga `main` tetap terbuka sebagai materi:
+Untuk mengerjakan latihan di folder terpisah sambil tetap membaca panduan pada `main`:
 
 ```bash
 git clone https://github.com/dzakwanIrfan/task-management-workshop.git
