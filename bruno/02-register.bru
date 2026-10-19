@@ -1,0 +1,35 @@
+meta {
+  name: Register
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("User publik tanpa passwordHash", function () {
+    const user = res.getBody();
+    expect(user.id).to.be.a('number');
+    expect(user.email).to.equal(bru.getVar('email'));
+    expect(user).not.to.have.property('passwordHash');
+  });
+}

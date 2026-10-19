@@ -1,0 +1,32 @@
+meta {
+  name: Health
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/
+  body: none
+  auth: none
+}
+
+script:pre-request {
+  const runId = Date.now().toString() + '-' + Math.random().toString(36).slice(2, 10);
+  const prefix = bru.getEnvVar('emailPrefix');
+  const domain = bru.getEnvVar('emailDomain');
+  bru.setVar('email', prefix + '+' + runId + '@' + domain);
+  bru.setVar('otherEmail', prefix + '+other-' + runId + '@' + domain);
+  ['accessToken', 'otherToken', 'userId', 'otherUserId', 'taskId'].forEach(function (key) {
+    bru.deleteVar(key);
+  });
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Backend merespons", function () {
+    expect(res.getBody()).to.equal('Hello World!');
+  });
+}

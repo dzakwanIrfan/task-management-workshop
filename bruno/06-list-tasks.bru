@@ -1,0 +1,28 @@
+meta {
+  name: List Tasks
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/tasks
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Daftar memuat task baru dan hanya milik user", function () {
+    const tasks = res.getBody();
+    expect(tasks).to.be.an('array');
+    expect(tasks.some(t => t.id === bru.getVar('taskId'))).to.equal(true);
+    expect(tasks.every(t => t.userId === bru.getVar('userId'))).to.equal(true);
+  });
+}

@@ -1,0 +1,21 @@
+meta {
+  name: Deleted Task Not Found
+  type: http
+  seq: 21
+}
+
+get {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

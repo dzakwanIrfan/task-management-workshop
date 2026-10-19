@@ -1,0 +1,25 @@
+meta {
+  name: Delete Task
+  type: http
+  seq: 20
+}
+
+delete {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Task yang benar dihapus", function () {
+    expect(res.getBody().id).to.equal(bru.getVar('taskId'));
+  });
+}

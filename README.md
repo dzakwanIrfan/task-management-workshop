@@ -2,6 +2,10 @@
 
 Repository utama untuk live coding **Day 1–3**: NestJS + Prisma + PostgreSQL, Next.js, lalu authentication JWT dan Task milik masing-masing user. Backend dan frontend adalah dua proyek `pnpm` terpisah; jalankan perintah dari direktorinya masing-masing.
 
+**Peserta baru:** selesaikan [Environment Setup Guide](docs/environment-setup-guide.md) sebelum workshop. Panduan mencakup instalasi tools, akun GitHub, database lokal, uji API, dan checklist kesiapan.
+
+**Uji API cepat:** buka [Bruno collection + contoh environment](bruno/README.md) untuk menjalankan register, login, CRUD Task, dan cek akses antar-user tanpa menyalin token secara manual.
+
 ## Mulai dari checkpoint yang tepat
 
 | Sesi | Branch untuk mulai latihan | Tag untuk melihat hasil sesi | Materi |

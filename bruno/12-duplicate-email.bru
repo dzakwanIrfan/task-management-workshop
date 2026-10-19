@@ -1,0 +1,28 @@
+meta {
+  name: Duplicate Email
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("HTTP 409", function () {
+    expect(res.getStatus()).to.equal(409);
+  });
+}

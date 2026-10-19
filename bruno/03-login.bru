@@ -1,0 +1,42 @@
+meta {
+  name: Login
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{email}}",
+    "password": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    bru.setVar('accessToken', res.getBody().accessToken);
+    bru.setVar('userId', res.getBody().user.id);
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Token dan user tersedia", function () {
+    const body = res.getBody();
+    expect(body.accessToken).to.be.a('string').and.not.empty;
+    expect(body.user.email).to.equal(bru.getVar('email'));
+    expect(body.user).not.to.have.property('passwordHash');
+  });
+}

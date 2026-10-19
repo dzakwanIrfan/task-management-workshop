@@ -1,0 +1,17 @@
+meta {
+  name: Tasks Without Token
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/tasks
+  body: none
+  auth: none
+}
+
+tests {
+  test("HTTP 401", function () {
+    expect(res.getStatus()).to.equal(401);
+  });
+}

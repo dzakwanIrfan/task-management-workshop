@@ -1,0 +1,33 @@
+meta {
+  name: Register Other User
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/auth/register
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{otherEmail}}",
+    "password": "{{password}}"
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("User kedua berbeda", function () {
+    expect(res.getBody().email).to.equal(bru.getVar('otherEmail'));
+    expect(res.getBody().id).not.to.equal(bru.getVar('userId'));
+  });
+}

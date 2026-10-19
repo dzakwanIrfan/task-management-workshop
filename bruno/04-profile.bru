@@ -1,0 +1,28 @@
+meta {
+  name: Profile
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/auth/me
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("User publik tanpa passwordHash", function () {
+    const user = res.getBody();
+    expect(user.id).to.be.a('number');
+    expect(user.email).to.equal(bru.getVar('email'));
+    expect(user).not.to.have.property('passwordHash');
+  });
+}

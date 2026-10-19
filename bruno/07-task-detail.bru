@@ -1,0 +1,25 @@
+meta {
+  name: Task Detail
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("ID task sesuai", function () {
+    expect(res.getBody().id).to.equal(bru.getVar('taskId'));
+  });
+}

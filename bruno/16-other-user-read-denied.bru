@@ -1,0 +1,21 @@
+meta {
+  name: Other User Read Denied
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{otherToken}}
+}
+
+tests {
+  test("HTTP 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

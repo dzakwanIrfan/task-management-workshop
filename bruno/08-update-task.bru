@@ -1,0 +1,40 @@
+meta {
+  name: Update Task
+  type: http
+  seq: 8
+}
+
+patch {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "{{taskTitle}} - selesai",
+    "description": "Sudah diuji melalui Bruno",
+    "completed": true
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Perubahan tersimpan", function () {
+    expect(res.getBody().id).to.equal(bru.getVar('taskId'));
+    expect(res.getBody().title).to.equal(bru.getEnvVar('taskTitle') + ' - selesai');
+    expect(res.getBody().description).to.equal('Sudah diuji melalui Bruno');
+    expect(res.getBody().completed).to.equal(true);
+  });
+}

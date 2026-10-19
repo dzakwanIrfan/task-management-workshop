@@ -1,0 +1,39 @@
+meta {
+  name: Login Other User
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/auth/login
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "email": "{{otherEmail}}",
+    "password": "{{password}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    bru.setVar('otherToken', res.getBody().accessToken);
+    bru.setVar('otherUserId', res.getBody().user.id);
+  }
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Token user kedua tersedia", function () {
+    expect(res.getBody().accessToken).to.be.a('string').and.not.empty;
+  });
+}

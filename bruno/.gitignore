@@ -1,0 +1,3 @@
+environments/*.bru
+!environments/*.example.bru
+reports/

@@ -1,0 +1,28 @@
+meta {
+  name: Owner Task Still Intact
+  type: http
+  seq: 19
+}
+
+get {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+tests {
+  test("HTTP 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Percobaan user lain tidak mengubah task", function () {
+    const task = res.getBody();
+    expect(task.userId).to.equal(bru.getVar('userId'));
+    expect(task.title).to.equal(bru.getEnvVar('taskTitle') + ' - selesai');
+    expect(task.completed).to.equal(true);
+  });
+}

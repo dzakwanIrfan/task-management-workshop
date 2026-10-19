@@ -1,0 +1,47 @@
+meta {
+  name: Create Task
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/tasks
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "title": "{{taskTitle}}",
+    "description": "{{taskDescription}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 201) {
+    bru.setVar('taskId', res.getBody().id);
+  }
+}
+
+tests {
+  test("HTTP 201", function () {
+    expect(res.getStatus()).to.equal(201);
+  });
+
+  test("Task dimiliki user login", function () {
+    const task = res.getBody();
+    expect(task.id).to.be.a('number');
+    expect(task.userId).to.equal(bru.getVar('userId'));
+    expect(task.title).to.equal(bru.getEnvVar('taskTitle'));
+    expect(task.description).to.equal(bru.getEnvVar('taskDescription'));
+    expect(task.completed).to.equal(false);
+  });
+}

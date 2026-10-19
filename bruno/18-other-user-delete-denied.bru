@@ -1,0 +1,21 @@
+meta {
+  name: Other User Delete Denied
+  type: http
+  seq: 18
+}
+
+delete {
+  url: {{baseUrl}}/tasks/{{taskId}}
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{otherToken}}
+}
+
+tests {
+  test("HTTP 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}
